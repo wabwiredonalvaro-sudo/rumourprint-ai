@@ -30,7 +30,13 @@ jobs:
       - name: Install Android platform from preinstalled SDK
         run: |
           echo "Using Android SDK: ${ANDROID_HOME}"
-          sdkmanager --install "platforms;android-35" "build-tools;35.0.0"
+          SDKMANAGER="$(find "${ANDROID_HOME}/cmdline-tools" -mindepth 2 -maxdepth 3 -type f -name sdkmanager | sort -V | tail -n 1)"
+          if [ -z "$SDKMANAGER" ]; then
+            echo "::error::Could not find Android SDK command-line tools on runner"
+            exit 1
+          fi
+          echo "Found SDK Manager: $SDKMANAGER"
+          "$SDKMANAGER" --install "platforms;android-35" "build-tools;35.0.0"
 
       - name: Install Gradle
         uses: gradle/actions/setup-gradle@v4
