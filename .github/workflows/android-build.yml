@@ -16,6 +16,8 @@ jobs:
     name: Compile Android test APK
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    permissions:
+      contents: write
 
     steps:
       - name: Check out source
@@ -46,10 +48,38 @@ jobs:
       - name: Build installable test APK
         run: gradle --no-daemon -p android-app assembleDebug
 
-      - name: Publish downloadable APK
+      - name: Name public beta installer and create checksum
+        run: |
+          cp android-app/app/build/outputs/apk/debug/app-debug.apk android-app/app/build/outputs/apk/debug/RUMOURPRINT-AI-Android-Beta.apk
+          cd android-app/app/build/outputs/apk/debug
+          sha256sum RUMOURPRINT-AI-Android-Beta.apk > SHA256SUMS.txt
+
+      - name: Publish downloadable APK for test installations
         uses: actions/upload-artifact@v4
         with:
-          name: RUMOURPRINT-AI-Android-debug-APK
-          path: android-app/app/build/outputs/apk/debug/app-debug.apk
+          name: RUMOURPRINT-AI-Android-beta-build
+          path: |
+            android-app/app/build/outputs/apk/debug/RUMOURPRINT-AI-Android-Beta.apk
+            android-app/app/build/outputs/apk/debug/SHA256SUMS.txt
           if-no-files-found: error
           retention-days: 14
+
+      - name: Create persistent Android beta download
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: android-v0.1.0-beta.1
+          target_commitish: main
+          name: RUMOURPRINT AI for Android — Public Beta 1
+          prerelease: true
+          make_latest: false
+          body: |
+            RUMOURPRINT AI by Fresh Exclusive Media — Android public testing release.
+
+            This APK is a DEBUG-SIGNED beta build for device testing, not a production-signed release or a Google Play Store app. It uses https://rumourprint-fem.streamlit.app/ and requires internet. The hosted investigation service has temporary session storage; do not submit confidential materials.
+
+            Android 8.0+ supported. Install only if you trust the source.
+            Upgrading later APKs may require uninstalling this beta due to debug-signing key changes.
+          files: |
+            android-app/app/build/outputs/apk/debug/RUMOURPRINT-AI-Android-Beta.apk
+            android-app/app/build/outputs/apk/debug/SHA256SUMS.txt
+          fail_on_unmatched_files: true
