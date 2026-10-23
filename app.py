@@ -119,26 +119,18 @@ def export_csv() -> str:
 
 
 with st.sidebar:
-    st.html('''
-        <div class="rp-brand">
-          <div class="rp-brand-logo" aria-hidden="true">
-            <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <rect x="4" y="4" width="56" height="56" rx="16" fill="#1A2A29" stroke="#33524E" stroke-width="2"/>
-              <path d="M19 32C19 24.82 24.82 19 32 19C39.18 19 45 24.82 45 32" stroke="#D9C28B" stroke-width="2.8" stroke-linecap="round"/>
-              <path d="M23 32C23 27.03 27.03 23 32 23C36.97 23 41 27.03 41 32" stroke="#7FC0AE" stroke-width="2.6" stroke-linecap="round"/>
-              <path d="M27 32C27 29.24 29.24 27 32 27C34.76 27 37 29.24 37 32" stroke="#EFF6F4" stroke-width="2.4" stroke-linecap="round"/>
-              <path d="M32 32L45 45" stroke="#7FC0AE" stroke-width="2.6" stroke-linecap="round"/>
-              <circle cx="46.5" cy="46.5" r="4.5" fill="#D9C28B" stroke="#1A2A29" stroke-width="1.4"/>
-            </svg>
-          </div>
-          <div class="rp-brand-copy">
-            <span class="rp-brand-name">RUMOURPRINT AI</span>
-            <small>NARRATIVE VERIFICATION WORKSPACE</small>
-            <div class="rp-powered-by">Powered by <strong>Fresh Exclusive Media</strong></div>
-          </div>
-        </div>
-        <div class="rp-side-heading">WORKSPACE</div>
-    ''')
+    brand_icon_col, brand_text_col = st.columns([1, 3], gap="small", vertical_alignment="center")
+    with brand_icon_col:
+        st.image("<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 64 64\" width=\"64\" height=\"64\" fill=\"none\"><rect x=\"4\" y=\"4\" width=\"56\" height=\"56\" rx=\"16\" fill=\"#1A2A29\" stroke=\"#33524E\" stroke-width=\"2\"/><path d=\"M19 32C19 24.82 24.82 19 32 19C39.18 19 45 24.82 45 32\" stroke=\"#D9C28B\" stroke-width=\"2.8\" stroke-linecap=\"round\"/><path d=\"M23 32C23 27.03 27.03 23 32 23C36.97 23 41 27.03 41 32\" stroke=\"#7FC0AE\" stroke-width=\"2.6\" stroke-linecap=\"round\"/><path d=\"M27 32C27 29.24 29.24 27 32 27C34.76 27 37 29.24 37 32\" stroke=\"#EFF6F4\" stroke-width=\"2.4\" stroke-linecap=\"round\"/><path d=\"M32 32L45 45\" stroke=\"#7FC0AE\" stroke-width=\"2.6\" stroke-linecap=\"round\"/><circle cx=\"46.5\" cy=\"46.5\" r=\"4.5\" fill=\"#D9C28B\" stroke=\"#1A2A29\" stroke-width=\"1.4\"/></svg>", width=58)
+    with brand_text_col:
+        st.html('''
+            <div class="rp-brand-copy">
+              <span class="rp-brand-name">RUMOURPRINT AI</span>
+              <small>NARRATIVE VERIFICATION WORKSPACE</small>
+              <div class="rp-powered-by">Powered by <strong>Fresh Exclusive Media</strong></div>
+            </div>
+        ''')
+    st.html('<div class="rp-side-heading">WORKSPACE</div>')
     page = st.radio(
         "Workspace", ["Investigation desk", "Evidence desk", "Relationship map", "Claim library", "About & ethics"],
         label_visibility="collapsed", key="workspace_page",
