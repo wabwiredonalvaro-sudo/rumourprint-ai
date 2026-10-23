@@ -118,6 +118,29 @@ def export_csv() -> str:
     return buffer.getvalue()
 
 
+
+# Keep both the sidebar and mobile navigation synchronised.
+WORKSPACE_PAGES = [
+    "Investigation desk",
+    "Evidence desk",
+    "Relationship map",
+    "Claim library",
+    "About & ethics",
+]
+
+if "workspace_page" not in st.session_state:
+    st.session_state.workspace_page = WORKSPACE_PAGES[0]
+if "mobile_workspace_page" not in st.session_state:
+    st.session_state.mobile_workspace_page = st.session_state.workspace_page
+
+
+def sync_sidebar_navigation() -> None:
+    st.session_state.mobile_workspace_page = st.session_state.workspace_page
+
+
+def sync_mobile_navigation() -> None:
+    st.session_state.workspace_page = st.session_state.mobile_workspace_page
+
 with st.sidebar:
     brand_icon_col, brand_text_col = st.columns([1, 3], gap="small", vertical_alignment="center")
     with brand_icon_col:
@@ -132,8 +155,10 @@ with st.sidebar:
         ''')
     st.html('<div class="rp-side-heading">WORKSPACE</div>')
     page = st.radio(
-        "Workspace", ["Investigation desk", "Evidence desk", "Relationship map", "Claim library", "About & ethics"],
-        label_visibility="collapsed", key="workspace_page",
+        "Workspace", WORKSPACE_PAGES,
+        label_visibility="collapsed",
+        key="workspace_page",
+        on_change=sync_sidebar_navigation,
     )
     st.markdown('<div class="rp-side-separator"></div><div class="rp-side-heading">ANALYSIS ENGINE</div>', unsafe_allow_html=True)
     st.selectbox(
@@ -151,6 +176,19 @@ with st.sidebar:
         </div>
         <div class="rp-sidebar-footer">VERSION 0.8 <span>·</span> NEWSROOM EDITION</div>
     ''', unsafe_allow_html=True)
+
+
+# This navigation is only displayed on small screens via assets/styles.css.
+# A visible dropdown avoids relying on a hidden/collapsed sidebar toggle.
+with st.container(key="mobile_navigation"):
+    st.markdown("**RUMOURPRINT AI · Menu**")
+    st.selectbox(
+        "Choose a section",
+        WORKSPACE_PAGES,
+        key="mobile_workspace_page",
+        label_visibility="collapsed",
+        on_change=sync_mobile_navigation,
+    )
 
 
 if page == "Investigation desk":
