@@ -138,7 +138,7 @@ with st.sidebar:
           </div>
         </div>
         <div class="rp-side-heading">WORKSPACE</div>
-    ''', unsafe_allow_html=True)
+    ''')
     page = st.radio(
         "Workspace", ["Investigation desk", "Evidence desk", "Relationship map", "Claim library", "About & ethics"],
         label_visibility="collapsed", key="workspace_page",
