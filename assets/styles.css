@@ -35,7 +35,7 @@ html, body, [data-testid="stApp"], .stApp {
   padding-bottom: 2rem !important;
 }
 header[data-testid="stHeader"] {background: transparent !important;}
-#MainMenu, footer, [data-testid="stDecoration"], [data-testid="stStatusWidget"], [data-testid="stToolbar"], [data-testid="stDeployButton"] {display:none !important;}
+#MainMenu, footer, [data-testid="stDecoration"], [data-testid="stStatusWidget"], [data-testid="stDeployButton"] {display:none !important;}
 
 /* Sidebar / navigation */
 [data-testid="stSidebar"] {
@@ -593,3 +593,56 @@ button[kind="primary"] {
   border-top: 1px solid var(--rp-border);
 }
 .rp-main-footer span {margin: 0 .42rem;color:#9ca9a4;}
+
+
+/* v0.8.1: Accessible mobile navigation. Streamlit auto-collapses sidebars on phones.
+   Keep Streamlit's native app header and sidebar opener available. */
+.st-key-mobile_navigation {
+  display: none !important;
+}
+
+@media (max-width: 760px) {
+  header[data-testid="stHeader"] {
+    display: flex !important;
+    visibility: visible !important;
+    min-height: 3.25rem;
+    background: rgba(243, 245, 244, 0.97) !important;
+  }
+
+  [data-testid="stSidebarCollapsedControl"] {
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    z-index: 999 !important;
+  }
+
+  .st-key-mobile_navigation {
+    display: block !important;
+    visibility: visible !important;
+    background: #ffffff;
+    border: 1px solid #dbe5e0;
+    border-radius: 12px;
+    padding: 11px 13px 14px;
+    margin: 0 0 1.25rem;
+  }
+
+  .st-key-mobile_navigation [data-testid="stMarkdownContainer"] p {
+    color: #164f48 !important;
+    font-size: 13px !important;
+    font-weight: 700 !important;
+    margin-bottom: .35rem !important;
+  }
+
+  .st-key-mobile_navigation [data-baseweb="select"] > div {
+    min-height: 43px;
+    border: 1px solid #c9d8d1;
+    border-radius: 8px;
+    background: #f8faf9;
+  }
+
+  [data-testid="stMainBlockContainer"] {
+    padding-top: 1.1rem !important;
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+  }
+}
