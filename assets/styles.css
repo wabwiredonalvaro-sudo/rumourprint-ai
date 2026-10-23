@@ -646,3 +646,35 @@ button[kind="primary"] {
     padding-right: 1rem !important;
   }
 }
+
+
+/* v0.8.2: simplify Streamlit-hosted chrome without affecting sidebar navigation. */
+/* Toolbar actions are visually unnecessary for public newsroom users.
+   IMPORTANT: keep stHeader and stSidebarCollapsedControl visible on phones. */
+[data-testid="stToolbar"],
+[data-testid="stToolbarActions"],
+[data-testid="stHeaderActionElements"],
+[data-testid="stMainMenu"],
+[data-testid="stAppDeployButton"],
+[data-testid="stDeployButton"],
+#GithubIcon,
+header[data-testid="stHeader"] [data-testid="stToolbar"],
+header[data-testid="stHeader"] [data-testid="stHeaderActionElements"] {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+/* Community Cloud viewer badge selectors can vary across versions. */
+[class*="viewerBadge_container"],
+[class*="viewerBadge_link"],
+[class*="styles_viewerBadge"],
+[class*="ViewerBadge_container"] {
+  display: none !important;
+}
+/* Do NOT hide the entire header: it contains the mobile sidebar opener. */
+@media (max-width:760px) {
+  header[data-testid="stHeader"],
+  [data-testid="stSidebarCollapsedControl"] {
+    visibility: visible !important;
+  }
+}
