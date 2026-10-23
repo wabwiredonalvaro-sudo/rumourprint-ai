@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">RUMOURPRINT AI</string>
+    <string name="brand_subtitle">POWERED BY FRESH EXCLUSIVE MEDIA</string>
+    <string name="offline_title">Unable to connect</string>
+    <string name="offline_description">RUMOURPRINT AI needs an internet connection to reach the investigation server. Check your connection and try again.</string>
+    <string name="retry">Try again</string>
+    <string name="open_browser">Open in browser</string>
+</resources>
