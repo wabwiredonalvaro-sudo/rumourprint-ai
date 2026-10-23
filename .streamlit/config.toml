@@ -7,4 +7,6 @@ textColor = "#12211f"
 font = "sans serif"
 
 [client]
+# Hide Streamlit's optional developer toolbar actions where supported.
+toolbarMode = "minimal"
 showSidebarNavigation = false
