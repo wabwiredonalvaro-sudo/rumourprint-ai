@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#142923">
+  <meta name="description" content="RUMOURPRINT AI by Fresh Exclusive Media: investigate changing narratives, examine claim similarities, research published evidence, and download the Android beta.">
+  <meta property="og:title" content="RUMOURPRINT AI | Fresh Exclusive Media">
+  <meta property="og:description" content="A newsroom tool for comparing claims, mapping related narratives and supporting evidence-led investigations.">
+  <meta property="og:type" content="website">
+  <title>RUMOURPRINT AI | Fresh Exclusive Media</title>
+  <style>
+    :root{color-scheme:light;--ink:#14231f;--muted:#596c63;--paper:#f7f9f7;--pine:#142923;--green:#306c57;--line:#dce5dd;--gold:#caa870}
+    *{box-sizing:border-box}
+    html{scroll-behavior:smooth}
+    body{margin:0;background:var(--paper);color:var(--ink);font-family:Inter,"Segoe UI",system-ui,-apple-system,sans-serif;line-height:1.62}
+    a{color:inherit}
+    a:focus-visible{outline:3px solid #80bda4;outline-offset:4px}
+    .skip{position:absolute;top:-100px;left:12px;padding:8px;background:white;z-index:100}
+    .skip:focus{top:12px}
+    .shell{max-width:1160px;padding:0 clamp(20px,5vw,56px);margin:auto}
+    .topbar{background:var(--pine);border-bottom:1px solid #365044}
+    .nav{min-height:91px;display:flex;align-items:center;justify-content:space-between;gap:16px}
+    .brand{display:flex;align-items:center;gap:13px;text-decoration:none;min-width:0;color:#fff}
+    .mark{width:46px;height:46px;flex:0 0 46px;display:block}
+    .brand-name{font-size:16px;font-weight:760;letter-spacing:.02em;line-height:1.18}
+    .brand-note{font-size:10px;display:block;letter-spacing:.17em;color:#c0d1c8;font-weight:700;padding-top:4px}
+    .navlink{font-size:12px;text-decoration:none;font-weight:650;color:#c4ddd0;border:1px solid #557568;border-radius:8px;padding:10px 15px;white-space:nowrap}
+    .navlink:hover{background:#254637}
+    .hero{background:var(--pine);color:#fff;position:relative;overflow:hidden}
+    .hero:after{content:"";position:absolute;right:-130px;top:40px;border:1px solid #3f5b4c;width:510px;height:510px;border-radius:50%;opacity:.45;pointer-events:none}
+    .hero-inner{position:relative;z-index:1;padding-block:clamp(56px,8vw,112px) clamp(65px,9vw,115px)}
+    .eyebrow{font-size:11px;letter-spacing:.17em;text-transform:uppercase;font-weight:800;color:#b7d4c0;display:inline-block;margin:0 0 22px}
+    h1{max-width:770px;font-size:clamp(39px,6vw,73px);line-height:1.07;letter-spacing:-.055em;margin:0 0 25px;font-weight:760}
+    .accent{color:#adccba}
+    .lede{font-size:clamp(15px,1.75vw,19px);color:#c8d6ce;max-width:650px;margin:0 0 34px}
+    .actions{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:19px}
+    .button{display:inline-flex;align-items:center;justify-content:center;min-height:52px;gap:9px;padding:13px 22px;font-size:14px;font-weight:750;border-radius:9px;text-decoration:none;transition:transform .15s,background .15s}
+    .button:hover{transform:translateY(-2px)}
+    .primary{color:#132821;background:#ebf5ee}
+    .secondary{background:transparent;color:white;border:1px solid #7da08c}
+    .disclaimer{color:#a9beb1;font-size:12px;max-width:660px}
+    .main{padding-top:74px;padding-bottom:82px}
+    .section-head{display:flex;justify-content:space-between;align-items:end;gap:24px;margin:0 0 26px}
+    .section-head h2{margin:0;font-size:clamp(25px,3vw,34px);letter-spacing:-.035em;line-height:1.18}
+    .section-head p{margin:0;color:var(--muted);font-size:13px;max-width:440px}
+    .cards{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+    .card{background:#fff;border:1px solid var(--line);border-radius:13px;padding:27px 25px;box-shadow:0 8px 20px rgba(24,46,31,.025)}
+    .number{font-size:11px;letter-spacing:.18em;color:var(--green);font-weight:800}
+    .card h3{font-size:18px;line-height:1.28;letter-spacing:-.02em;margin:21px 0 10px}
+    .card p{color:var(--muted);font-size:13px;margin:0;line-height:1.75}
+    .trust{display:grid;grid-template-columns:1fr 1fr;gap:28px;margin-top:55px;padding:28px;border:1px solid var(--line);border-radius:12px;background:#edf3ee}
+    .trust h2{margin:0 0 10px;font-size:21px;letter-spacing:-.03em}
+    .trust p{font-size:13px;color:#4e6658;margin:0}
+    .trust a{font-weight:750;color:#1e6348}
+    footer{background:#eaf0eb;border-top:1px solid var(--line)}
+    .footer-row{display:flex;align-items:center;justify-content:space-between;gap:15px;padding-top:25px;padding-bottom:25px}
+    .footer-row p{font-size:12px;color:#4c6656;margin:0}
+    .footer-row a{font-size:12px;text-decoration:none;color:#235c48;font-weight:750}
+    @media(max-width:800px){.section-head{display:block}.section-head p{margin-top:11px}.cards{grid-template-columns:1fr}.trust{grid-template-columns:1fr}.hero:after{width:320px;height:320px;right:-190px}}
+    @media(max-width:480px){.nav{min-height:76px}.brand-name{font-size:13px}.brand-note{font-size:8px}.mark{width:39px;height:39px;flex-basis:39px}.navlink{font-size:11px;padding:7px 9px}.actions{display:grid}.button{width:100%}.main{padding-top:52px}.footer-row{display:block}.footer-row p{margin-bottom:11px}}
+    @media(prefers-reduced-motion:reduce){*,*:before,*:after{scroll-behavior:auto!important;transition:none!important}}
+  </style>
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="topbar">
+  <div class="shell nav">
+    <a href="https://freshexclusivemedia.com/" class="brand" aria-label="Fresh Exclusive Media home">
+      <svg class="mark" viewBox="0 0 64 64" role="img" aria-label="RUMOURPRINT fingerprint lens mark" xmlns="http://www.w3.org/2000/svg">
+        <rect x="2" y="2" width="60" height="60" rx="16" fill="#203f34" stroke="#668a78" stroke-width="1.5"/>
+        <g fill="none" stroke-linecap="round">
+          <path d="M17 32a15 15 0 0 1 30 0" stroke="#d4bd85" stroke-width="2.5"/>
+          <path d="M22 32a10 10 0 0 1 20 0" stroke="#84c0a4" stroke-width="2.5"/>
+          <path d="M27 32a5 5 0 0 1 10 0" stroke="#fff" stroke-width="2.5"/>
+          <path d="M32 33 46 47" stroke="#84c0a4" stroke-width="3"/>
+        </g>
+        <circle cx="47" cy="47" r="4" fill="#d4bd85"/>
+      </svg>
+      <span><span class="brand-name">FRESH EXCLUSIVE MEDIA</span><span class="brand-note">NEWSROOM INNOVATION</span></span>
+    </a>
+    <a class="navlink" href="https://freshexclusivemedia.com/">← Main website</a>
+  </div>
+</header>
+
+<main id="content">
+  <section class="hero">
+    <div class="shell hero-inner">
+      <p class="eyebrow">Fresh Exclusive Media · Digital verification tools</p>
+      <h1>Investigate the claim.<br><span class="accent">Understand the change.</span></h1>
+      <p class="lede">Meet <strong>RUMOURPRINT AI</strong>, an investigation workspace for comparing suspicious messages, exploring related narratives and researching published evidence.</p>
+      <div class="actions">
+        <a class="button primary" href="https://rumourprint-fem.streamlit.app/?embed=true" rel="noopener noreferrer" target="_blank">Launch web application <span aria-hidden="true">↗</span></a>
+        <a class="button secondary" href="https://github.com/wabwiredonalvaro-sudo/rumourprint-ai/releases/download/android-v0.1.0-beta.1/RUMOURPRINT-AI-Android-Beta.apk">Download Android beta <span aria-hidden="true">↓</span></a>
+      </div>
+      <p class="disclaimer">Free public research prototype · Android 8.0+ · Requires internet · No account needed. Never enter confidential newsroom information.</p>
+    </div>
+  </section>
+
+  <div class="shell main">
+    <div class="section-head">
+      <h2>Built for the investigative workflow</h2>
+      <p>RUMOURPRINT AI surfaces similarities and possible changes in wording. It does not independently establish the truth of a claim.</p>
+    </div>
+    <div class="cards" aria-label="RUMOURPRINT capabilities">
+      <article class="card"><span class="number">01 / INVESTIGATE</span><h3>Compare related claims</h3><p>Identify messages discussing the same topic despite changed wording, then examine where meaning or certainty may have shifted.</p></article>
+      <article class="card"><span class="number">02 / VISUALISE</span><h3>Map narrative connections</h3><p>View similarity links and connected message groups in an interactive relationship map for further journalistic review.</p></article>
+      <article class="card"><span class="number">03 / RESEARCH</span><h3>Look for published evidence</h3><p>Explore related news headlines and available fact-check reviews, follow original sources and document findings.</p></article>
+    </div>
+
+    <aside class="trust" aria-label="Responsible use and Android download details">
+      <div>
+        <h2>A tool for journalists, not a truth machine.</h2>
+        <p>Similarity alone cannot determine accuracy, source attribution or how a message spread. Verify claims against original documents, dates and trusted reporting before publishing conclusions.</p>
+      </div>
+      <div>
+        <h2>About the Android download</h2>
+        <p>The Android installer is a <strong>debug-signed public beta</strong> for testing, not a Google Play release. It runs our hosted investigation service and may need reinstalling for future updates. Review the <a href="https://github.com/wabwiredonalvaro-sudo/rumourprint-ai/releases/tag/android-v0.1.0-beta.1" target="_blank" rel="noopener noreferrer">APK release information</a> before installing.</p>
+      </div>
+    </aside>
+  </div>
+</main>
+<footer>
+  <div class="shell footer-row">
+    <p>© 2026 Fresh Exclusive Media. RUMOURPRINT AI is powered by Fresh Exclusive Media.</p>
+    <a href="https://freshexclusivemedia.com/">Return to Fresh Exclusive Media ↗</a>
+  </div>
+</footer>
+</body>
+</html>
