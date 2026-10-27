@@ -144,6 +144,21 @@ def sync_sidebar_navigation() -> None:
 def sync_mobile_navigation() -> None:
     st.session_state.workspace_page = st.session_state.mobile_workspace_page
 
+
+def update_evidence_search_terms() -> None:
+    """Automatically rebuild editable search words whenever the claim changes."""
+    claim = st.session_state.get("verification_claim", "").strip()
+    st.session_state["verification_query"] = suggest_query(claim) if claim else ""
+
+
+def initialise_evidence_search_terms() -> None:
+    """Populate the first visit without resetting a user's manual edits."""
+    if "verification_claim" not in st.session_state:
+        st.session_state["verification_claim"] = st.session_state.get("last_query", "")
+    if "verification_query" not in st.session_state:
+        update_evidence_search_terms()
+
+
 with st.sidebar:
     brand_icon_col, brand_text_col = st.columns([1, 3], gap="small", vertical_alignment="center")
     with brand_icon_col:
@@ -306,14 +321,22 @@ elif page == "Evidence desk":
 
     article_tab, image_tab = st.tabs(["Article evidence", "Image provenance"])
     with article_tab:
+        initialise_evidence_search_terms()
         claim_input = st.text_area(
             "CLAIM UNDER INVESTIGATION",
-            value=st.session_state.last_query,
             height=110,
             max_chars=2500,
             key="verification_claim",
+            on_change=update_evidence_search_terms,
+            placeholder="Paste a public claim here. The search terms will be generated automatically.",
         )
-        query = st.text_input("EDITABLE SEARCH TERMS", value=suggest_query(claim_input) if claim_input else "", key="verification_query")
+        query = st.text_input(
+            "SEARCH TERMS · AUTOMATICALLY GENERATED (EDITABLE)",
+            key="verification_query",
+            placeholder="Generated from the claim above",
+            help="The application generates keywords when you finish entering a claim. You can edit them; changing the claim refreshes the suggestion.",
+        )
+        st.caption("Search terms fill automatically when you finish entering the claim. You can still edit them to narrow or broaden the evidence search.")
         st.info("Only submit public claims. Remove personal details and confidential sources from search terms, which leave the platform.")
         api_key = st.text_input(
             "Google Fact Check Tools API key (optional)", type="password",
