@@ -12,6 +12,8 @@ import streamlit as st
 from engine import compare, pairwise_scores, shift_signals
 from semantic import MODEL_NAME, load_local_model
 from evidence import search_news, search_fact_checks, suggest_query, broaden_query, build_brief, EvidenceError
+from source_verification import fetch_article, compare_article_evidence, evidence_report, ArticleAccessError
+from image_provenance import analyse_image, image_report, ImageReviewError
 from network import build_network, figure_for_network, highlight_differences
 
 APP_DIR = Path(__file__).resolve().parent
@@ -121,8 +123,8 @@ def export_csv() -> str:
 
 # Keep both the sidebar and mobile navigation synchronised.
 WORKSPACE_PAGES = [
-    "Investigation desk",
     "Evidence desk",
+    "Investigation desk",
     "Relationship map",
     "Claim library",
     "About & ethics",
@@ -294,83 +296,268 @@ if page == "Investigation desk":
             </div>''', unsafe_allow_html=True)
 
 elif page == "Evidence desk":
-    st.markdown("""\n        <div class=\"rp-page-header\">\n          <div class=\"rp-page-kicker\">WORKSPACE <span>/</span> EVIDENCE DESK</div>\n          <h1>Research published evidence<span class=\"rp-title-dot\">.</span></h1>\n          <p>Search current reporting and published fact-check reviews, then record your editorial findings in a documented evidence brief.</p>\n        </div>""", unsafe_allow_html=True)
-    claim_input = st.text_area("CLAIM UNDER INVESTIGATION", value=st.session_state.last_query, height=110, max_chars=2500)
-    query = st.text_input("EDITABLE SEARCH TERMS", value=suggest_query(claim_input) if claim_input else "")
-    st.info("Public demo: do not enter private messages, phone numbers or identifying information. Edited search terms are sent to external search providers.")
-    api_key = st.text_input("Google Fact Check Tools API key (optional)", type="password", help="Leave empty to search news only. A key enables searches of published fact-check reviews.")
-    search_news_enabled = st.checkbox("Search current news headlines", value=True)
-    search_checks_enabled = st.checkbox("Search published fact-checks", value=False, disabled=not bool(api_key))
-    st.caption("An API key is optional. If you have not enabled the Fact Check Tools API in Google Cloud, leave the key empty and search news only. Never share your key in screenshots.")
-    if st.button("Search evidence sources", type="primary"):
-        if not claim_input.strip() or len(query.strip()) < 3:
-            st.warning("Enter a claim and at least three characters of search terms.")
-        elif not search_news_enabled and not search_checks_enabled:
-            st.warning("Select at least one evidence source.")
-        else:
-            st.session_state.evidence_news = []
-            st.session_state.evidence_checks = []
-            st.session_state.evidence_claim = claim_input.strip()
-            st.session_state.evidence_query = query.strip()
-            st.session_state.evidence_news_status = "not_requested"
-            st.session_state.evidence_checks_status = "not_requested"
-            st.session_state.evidence_news_query_used = query.strip()
-            if search_news_enabled:
+    st.markdown("""
+        <div class="rp-page-header">
+          <div class="rp-page-kicker">WORKSPACE <span>/</span> EVIDENCE DESK</div>
+          <h1>Verify evidence. Investigate images<span class="rp-title-dot">.</span></h1>
+          <p>Review original publisher articles, compare claim wording, and inspect image provenance. Results are research leads for human editorial review, not automatic truth verdicts.</p>
+        </div>""", unsafe_allow_html=True)
+
+    article_tab, image_tab = st.tabs(["Article evidence", "Image provenance"])
+    with article_tab:
+        claim_input = st.text_area(
+            "CLAIM UNDER INVESTIGATION",
+            value=st.session_state.last_query,
+            height=110,
+            max_chars=2500,
+            key="verification_claim",
+        )
+        query = st.text_input("EDITABLE SEARCH TERMS", value=suggest_query(claim_input) if claim_input else "", key="verification_query")
+        st.info("Only submit public claims. Remove personal details and confidential sources from search terms, which leave the platform.")
+        api_key = st.text_input(
+            "Google Fact Check Tools API key (optional)", type="password",
+            help="Leave empty to search news only. Keys must remain private.",
+        )
+        search_news_enabled = st.checkbox("Search current news headlines", value=True)
+        search_checks_enabled = st.checkbox("Search published fact-checks", value=False, disabled=not bool(api_key))
+        if st.button("Search evidence sources", type="primary"):
+            if not claim_input.strip() or len(query.strip()) < 3:
+                st.warning("Enter a claim and at least three characters of search terms.")
+            elif not search_news_enabled and not search_checks_enabled:
+                st.warning("Select at least one evidence source.")
+            else:
+                st.session_state.evidence_news = []
+                st.session_state.evidence_checks = []
+                st.session_state.evidence_claim = claim_input.strip()
+                st.session_state.evidence_query = query.strip()
+                st.session_state.evidence_news_status = "not_requested"
+                st.session_state.evidence_checks_status = "not_requested"
+                st.session_state.evidence_news_query_used = query.strip()
+                if search_news_enabled:
+                    try:
+                        with st.spinner("Searching published headlines..."):
+                            hits = search_news(query)
+                            if not hits:
+                                broader = broaden_query(query)
+                                if broader and broader.casefold() != query.strip().casefold():
+                                    st.session_state.evidence_news_query_used = broader
+                                    hits = search_news(broader)
+                            st.session_state.evidence_news = hits
+                            st.session_state.evidence_news_status = "found" if hits else "empty"
+                    except EvidenceError as exc:
+                        st.session_state.evidence_news_status = "error"
+                        st.warning(f"News search: {exc}")
+                if search_checks_enabled:
+                    try:
+                        with st.spinner("Searching published fact checks..."):
+                            st.session_state.evidence_checks = search_fact_checks(query, api_key)
+                            st.session_state.evidence_checks_status = "found" if st.session_state.evidence_checks else "empty"
+                    except EvidenceError as exc:
+                        st.session_state.evidence_checks_status = "error"
+                        st.warning(f"Fact-check search: {exc}")
+
+        news = st.session_state.get("evidence_news", [])
+        checks = st.session_state.get("evidence_checks", [])
+        with st.expander("Published fact-check reviews", expanded=False):
+            if not checks:
+                st.caption("No reviews retrieved or this search is not enabled. Absence of reviews does not establish truth.")
+            for idx, item in enumerate(checks):
+                st.markdown(f"**{escape(item['title'])}** — {escape(item['publisher'])}")
+                st.caption(f"Published: {item['date'] or 'Unknown'} · Publisher rating: {item['rating'] or 'Not supplied'}")
+                st.link_button("Open original fact-check review", item["url"])
+                if st.button("Extract review article", key=f"extract_review_{idx}"):
+                    try:
+                        with st.spinner("Reading publisher article..."):
+                            article = fetch_article(item["url"])
+                        current = st.session_state.get("article_sources", [])
+                        if not any(x["url"] == article["url"] for x in current):
+                            st.session_state.article_sources = (current + [article])[-4:]
+                        st.success("Article text extracted. Review its quoted passage below.")
+                    except ArticleAccessError as exc:
+                        st.warning(str(exc))
+        with st.expander("Current news headlines", expanded=False):
+            used_query = st.session_state.get("evidence_news_query_used", "")
+            if used_query and used_query != st.session_state.get("evidence_query", ""):
+                st.info(f"The original search returned no results; retried with: {used_query}")
+            if not news:
+                st.caption("No matching headlines retrieved or lookup was unavailable. This is not evidence for or against the claim.")
+            for idx, item in enumerate(news):
+                st.markdown(f"**{escape(item['title'])}** — {escape(item['publisher'])}")
+                st.caption(f"Published: {item['date'] or 'Unknown'}")
+                st.link_button("Open original news link", item["url"])
+                if st.button("Extract this article", key=f"extract_news_{idx}"):
+                    try:
+                        with st.spinner("Reading publisher article..."):
+                            article = fetch_article(item["url"])
+                        current = st.session_state.get("article_sources", [])
+                        if not any(x["url"] == article["url"] for x in current):
+                            st.session_state.article_sources = (current + [article])[-4:]
+                        st.success("Article text extracted.")
+                    except ArticleAccessError as exc:
+                        st.warning(str(exc))
+                        st.caption("Google News redirect links are sometimes inaccessible. Open the headline, copy the direct publisher article URL, then paste it below.")
+
+        st.divider()
+        section_heading("01", "SOURCE EXTRACTION", "Compare the actual article text",
+                        "Paste a direct publisher URL. Supported publishers and official institutions are fetched using bounded HTTPS requests; some sites block extraction.")
+        article_url = st.text_input(
+            "DIRECT ORIGINAL ARTICLE URL (HTTPS)",
+            placeholder="https://news.mak.ac.ug/2026/...",
+            key="direct_article_url",
+        )
+        if st.button("Extract article and compare", type="primary"):
+            if not claim_input.strip():
+                st.warning("Enter the claim under investigation first.")
+            elif not article_url.strip():
+                st.warning("Paste a direct source article URL.")
+            else:
                 try:
-                    with st.spinner("Searching current news headlines..."):
-                        hits = search_news(query)
-                        if not hits:
-                            broader = broaden_query(query)
-                            if broader and broader.casefold() != query.strip().casefold():
-                                st.session_state.evidence_news_query_used = broader
-                                hits = search_news(broader)
-                        st.session_state.evidence_news = hits
-                        st.session_state.evidence_news_status = "found" if hits else "empty"
-                except EvidenceError as exc:
-                    st.session_state.evidence_news_status = "error"
-                    st.warning(f"News search: {exc}")
-            if search_checks_enabled:
+                    with st.spinner("Reading publisher text safely..."):
+                        article = fetch_article(article_url)
+                    current = st.session_state.get("article_sources", [])
+                    if not any(x["url"] == article["url"] for x in current):
+                        st.session_state.article_sources = (current + [article])[-4:]
+                    st.session_state.source_claim = claim_input.strip()
+                    st.success("Publisher article extracted. Inspect the preliminary assessment.")
+                except ArticleAccessError as exc:
+                    st.warning(str(exc))
+
+        articles = st.session_state.get("article_sources", [])
+        if articles:
+            st.caption(f"{len(articles)} article source(s) loaded in this session. Newest four are retained.")
+            if st.button("Clear extracted sources"):
+                st.session_state.article_sources = []
+                st.session_state.source_claim = ""
+                st.rerun()
+            for idx, item in enumerate(articles, 1):
+                st.markdown(f"**Source {idx}: {item['domain']}**")
+                st.link_button(f"Open source {idx}", item["url"])
+            if claim_input.strip():
+                result = compare_article_evidence(claim_input, articles)
+                st.subheader("Preliminary evidence assessment")
+                label = result["status"]
+                if label == "Supported":
+                    st.info("SUPPORTED — preliminary matching passage only. Independent editorial confirmation is mandatory.")
+                elif label == "Contradicted":
+                    st.warning("CONTRADICTED — a possible conflicting passage was found. Check the original source and context.")
+                else:
+                    st.info("INSUFFICIENT EVIDENCE — available passages do not establish a conclusion.")
+                st.caption(result["reason"])
+                st.markdown("**Cited passages from publisher articles**")
+                if not result["citations"]:
+                    st.caption("No relevant extractable passages found. The claim remains unverified.")
+                for i, citation in enumerate(result["citations"], 1):
+                    st.markdown(f"**[{i}] {escape(citation['domain'])}** · {citation['signal']}")
+                    st.write("“" + citation["excerpt"] + "”")
+                    st.link_button(f"Read original article [{i}]", citation["url"])
+                    st.caption("Quoted passage from extracted article; source context and date must be checked. Text overlap is not a truth probability.")
+                st.markdown("**Mandatory editorial decision**")
+                decision = st.selectbox(
+                    "Reviewer status",
+                    [
+                        "Pending — no human verdict",
+                        "Reviewer confirmed the evidence after inspecting originals",
+                        "Reviewer rejected or needs to correct the automated assessment",
+                    ],
+                    key="editorial_decision",
+                )
+                notes = st.text_area(
+                    "JOURNALIST'S REVIEW NOTES",
+                    placeholder="Which original records, dates, sources and quotations confirm or challenge this statement?",
+                    key="article_review_notes",
+                )
+                if decision != "Pending — no human verdict" and len(notes.strip()) < 20:
+                    st.warning("Document your verification method and supporting records in the review notes before treating this case as reviewed.")
+                reviewed = decision if len(notes.strip()) >= 20 else "Pending — no human verdict"
+                brief = evidence_report(claim_input, articles, result, notes, decision=reviewed)
+                st.download_button(
+                    "Download citation-backed evidence report (.md)",
+                    brief,
+                    file_name="rumourprint_source_review.md",
+                    mime="text/markdown",
+                )
+            else:
+                st.info("Enter a claim to compare against your extracted articles.")
+        else:
+            st.caption("No article bodies extracted yet. Search links and headlines alone cannot support an automated conclusion.")
+
+        st.divider()
+        st.subheader("Original evidence research brief")
+        base_notes = st.text_area(
+            "Additional research notes", key="original_research_notes",
+            placeholder="Sources opened manually, questions for experts and gaps in evidence",
+        )
+        if st.session_state.get("evidence_claim"):
+            brief = build_brief(
+                st.session_state.evidence_claim,
+                st.session_state.get("evidence_query", ""),
+                news, checks, base_notes,
+            )
+            st.download_button(
+                "Download headline research brief (.md)", brief,
+                file_name="rumourprint_research_brief.md", mime="text/markdown",
+            )
+        st.caption("A publisher review rating cannot be copied to a different claim. Always check exact dates, attribution, context and original records.")
+
+    with image_tab:
+        st.subheader("Image authenticity & Content Credentials")
+        st.caption(
+            "Upload an image to inspect local file metadata and signed provenance statements, when available. "
+            "This is NOT a validated AI-image classifier and cannot reliably measure the percentage edited or generated."
+        )
+        st.warning(
+            "No existing detector can reliably classify all AI-generated or AI-edited pictures, or measure "
+            "the exact percentage of AI pixels. Missing AI metadata does not mean an image is genuine."
+        )
+        upload = st.file_uploader(
+            "UPLOAD AN IMAGE (JPG, PNG OR WEBP, UP TO 8 MB)",
+            type=["jpg", "jpeg", "png", "webp"],
+            key="image_provenance_upload",
+            help="Avoid faces and private imagery unless you have permission. No third-party AI API receives the image from this tool.",
+        )
+        if upload is not None:
+            st.image(upload, caption="Uploaded image for visual review", width=450)
+            if st.button("Inspect image provenance", type="primary"):
                 try:
-                    with st.spinner("Searching published fact-checks..."):
-                        st.session_state.evidence_checks = search_fact_checks(query, api_key)
-                        st.session_state.evidence_checks_status = "found" if st.session_state.evidence_checks else "empty"
-                except EvidenceError as exc:
-                    st.session_state.evidence_checks_status = "error"
-                    st.warning(f"Fact-check search: {exc}")
-    news = st.session_state.get("evidence_news", [])
-    checks = st.session_state.get("evidence_checks", [])
-    st.subheader("Published fact-check reviews")
-    if not checks:
-        if st.session_state.get("evidence_checks_status") == "error":
-            st.caption("Fact-check API request failed. This is not a fact-check result. You can continue with news search.")
-        elif st.session_state.get("evidence_checks_status") == "empty":
-            st.caption("No related published fact-check reviews found. This does not establish the claim is true or false.")
-        else:
-            st.caption("No fact-check reviews retrieved. This does not prove the claim is true.")
-    for item in checks:
-        st.markdown(f"**{escape(item['title'])}** — {escape(item['publisher'])}")
-        st.caption(f"Published: {item['date'] or 'Unknown'} · Publisher rating: {item['rating'] or 'Not supplied'}")
-        st.link_button("Open original review", item['url'])
-    st.subheader("Current news headlines")
-    used_query = st.session_state.get("evidence_news_query_used", "")
-    if st.session_state.get("evidence_news_status") in ("found", "empty") and used_query and used_query != st.session_state.get("evidence_query", ""):
-        st.info(f"No results for the original long phrase, so news search was retried with: {used_query}")
-    if not news:
-        if st.session_state.get("evidence_news_status") == "empty":
-            st.caption("The news feed responded, but no matching headlines were found. Try shorter search terms, a known location or an official organisation name. This does not prove the claim is false.")
-        elif st.session_state.get("evidence_news_status") == "error":
-            st.caption("News lookup failed. Check the warning above or try a different connection.")
-        else:
-            st.caption("No news headlines retrieved yet. This does not prove the claim is false.")
-    for item in news:
-        st.markdown(f"**{escape(item['title'])}** — {escape(item['publisher'])}")
-        st.caption(f"Published: {item['date'] or 'Unknown'} · Headline is not independently verified evidence")
-        st.link_button("Read source article", item['url'])
-    notes = st.text_area("JOURNALIST'S REVIEW NOTES", placeholder="What did primary sources confirm? Which facts remain unverified?")
-    if st.session_state.get("evidence_claim"):
-        brief = build_brief(st.session_state.evidence_claim, st.session_state.get("evidence_query", ""), news, checks, notes)
-        st.download_button("Download evidence research brief (.md)", brief, file_name="rumourprint_evidence_brief.md", mime="text/markdown")
-    st.caption("A related fact-check's rating must never be applied automatically to your submitted claim. Verify source dates, original records and context before publication.")
+                    with st.spinner("Inspecting file, metadata and Content Credentials..."):
+                        st.session_state.image_review = analyse_image(upload.getvalue(), upload.name)
+                    st.success("Metadata review completed. Interpret the result with the original image and sources.")
+                except ImageReviewError as exc:
+                    st.error(str(exc))
+        img = st.session_state.get("image_review")
+        if img and (upload is not None and upload.name == img["filename"]):
+            st.subheader("Image provenance findings")
+            p1, p2, p3 = st.columns(3)
+            with p1:
+                st.metric("Provenance finding", img["finding"])
+            with p2:
+                st.metric("C2PA credentials", img["c2pa_status"])
+            with p3:
+                st.metric("AI-edited portion", "Not measurable")
+            st.write(img["reason"])
+            st.caption(img["metadata_note"])
+            st.code("SHA-256: " + img["sha256"], language="text")
+            if img.get("issuer"):
+                st.markdown("**Declared credential issuer:** " + str(img["issuer"]))
+            if img["actions"]:
+                st.markdown("**Creation/editing history from Content Credentials:**")
+                for action in img["actions"]:
+                    st.write("• " + action)
+            if img["metadata"]:
+                with st.expander("Image metadata fields"):
+                    st.json(img["metadata"])
+            image_notes = st.text_area(
+                "JOURNALIST'S IMAGE REVIEW NOTES",
+                placeholder="Where did you obtain the original file? Is there a verifiable source? What editing disclosures exist?",
+                key="image_review_notes",
+            )
+            st.download_button(
+                "Download image provenance brief (.md)",
+                image_report(img, image_notes),
+                file_name="rumourprint_image_provenance.md",
+                mime="text/markdown",
+            )
+        st.caption("C2PA is a cryptographically signed provenance standard. Traditional EXIF metadata can be altered. Absence of signed credentials is inconclusive.")
 
 elif page == "Relationship map":
     st.markdown("""
