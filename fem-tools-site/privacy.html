@@ -29,7 +29,7 @@
 <main>
   <p class="eyebrow">FEM digital verification tools</p>
   <h1>Privacy & responsible use</h1>
-  <p class="updated">Last reviewed: 24 October 2026 · Public prototype and Android beta</p>
+  <p class="updated">Last reviewed: 27 October 2026 · Public prototype and Android beta</p>
   <p class="note">RUMOURPRINT AI is an investigative research aid, not a source of final factual verdicts. Do not enter confidential reporting materials, private source identities, personal contact details, or other sensitive information.</p>
   <h2>What the tool does</h2>
   <p>RUMOURPRINT AI compares the text of submitted messages using wording-based methods or a multilingual semantic model running on its hosted server. It can highlight differences, group related submissions and search publicly available news or fact-check summaries. Results are investigative leads requiring independent editorial verification.</p>
@@ -38,6 +38,9 @@
   <h2>Publisher article extraction and image review</h2>
   <p>When you request article extraction, the app server downloads an HTML article from a supported publisher and extracts selected text passages for a preliminary source comparison. External reporting can be outdated, misleading or quoted out of context; a human reviewer must verify the citation and decision. Not all sites allow automated extraction.</p>
   <p>When you upload a JPG, PNG or WEBP photo for provenance review, the bytes are processed by the Streamlit-hosted server to inspect image metadata and C2PA Content Credentials, where available. Images are not deliberately sent to third-party AI detection APIs by this feature. Avoid private photographs and images of vulnerable people. C2PA data may be absent or stripped, and no percentage of AI-altered pixels can be reliably calculated.</p>
+  <h2>Checking public X accounts</h2>
+  <p>The Official Social Accounts feature lets a journalist specify a public X @handle, an alleged quotation, and (optionally) a direct X post URL. In manual mode, a search link opens on X in the user's browser. If a newsroom administrator enables X API access, account handles, search terms and post IDs are sent to X's official API for targeted public-post lookups. X may charge the project for results retrieved; the application therefore does not make background lookups or harvest private accounts.</p>
+  <p>Only short excerpts, post URLs and account IDs are presented in ephemeral app sessions and downloaded research briefs. An X handle, badge, or apparent wording match is not proof of the real-world author's identity. The journalist must verify the person-account relationship independently and examine the original post. Do not submit private or sensitive statements, source identities, passwords or personal messages.</p>
   <h2>External evidence searches</h2>
   <p>When you choose to search published evidence, your edited query is sent from the application to Google News search. If you enable published fact-check search and supply your own Google Fact Check Tools API key, the query and key are sent to that Google service. The separate external sites you open from search results have their own privacy practices. Review search terms carefully and remove personal or identifying details before submitting them.</p>
   <h2>Hosting and browser data</h2>
