@@ -302,17 +302,25 @@ def verify_post_link(handle: str, raw_url: str, claim: str, token: str, *, trans
     if str(post_data.get("id", "")) != post_ref["post_id"]:
         raise SocialLookupError("X returned a different post ID than the supplied link.")
     owner_matches = str(post_data.get("author_id", "")) == profile["id"]
-    parsed = _extract_post(post_data, profile) if owner_matches else None
+    is_repost = any(
+        isinstance(ref, dict) and ref.get("type") == "retweeted"
+        for ref in (post_data.get("referenced_tweets") or [])
+    )
+    parsed = _extract_post(post_data, profile) if owner_matches and not is_repost else None
+    if not owner_matches:
+        finding = "X attributes this post to a DIFFERENT account ID"
+    elif is_repost:
+        finding = "This account reposted another post; it did not author the original wording"
+    else:
+        finding = "The X API attributes this post to the specified account ID — check wording and identity"
     return {
         "mode": "Direct post",
         "post_url": post_ref["url"],
         "account": profile,
         "owner_matches": owner_matches,
+        "repost": is_repost,
         "post": parsed,
-        "finding": (
-            "The X API attributes this post to the specified account ID — check wording and identity"
-            if owner_matches else "X attributes this post to a DIFFERENT account ID"
-        ),
+        "finding": finding,
         "checked_at": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
         "comparison": compare_post_wording(claim, parsed["text"]) if parsed else None,
     }
