@@ -30,6 +30,12 @@ X_SOCIAL_CHECK_ACCESS_CODE = "SET_A_SEPARATE_SECRET_FOR_AUTHORISING_NEWSROOM_LOO
 5. Use the newsroom access code in the tab to authorise paid lookups. If you omit `X_SOCIAL_CHECK_ACCESS_CODE`, a configured X token may allow any visitor to trigger billable lookups. In a public-facing deployment, **always configure an access code and X-side usage limits/budget**.
 6. Test a public account with a direct post you already know exists and verify both matching and mismatching author IDs.
 
+## Facebook, Instagram and LinkedIn cross-checks
+
+The same tab offers **manual public web discovery links** for Facebook, Instagram and LinkedIn, when a person or organisation name is provided. Those links run site-scoped web searches for relevant public pages/posts.
+
+These other-platform links do **not** access private accounts, authenticate anyone, retrieve content through those networks' official APIs or conclusively establish who made a statement. Always open the original social post and independently verify ownership. Google or other search engine indexing can be partial or outdated.
+
 ## API operations (public only)
 - `GET https://api.x.com/2/users/by/username/:username` resolves the current handle to a stable user ID.
 - `GET https://api.x.com/2/tweets/search/recent` searches approximately seven days of indexed public X posts.
