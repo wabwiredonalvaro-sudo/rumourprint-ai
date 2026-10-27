@@ -63,6 +63,22 @@ def make_x_search_url(handle: str, claim: str) -> str:
     return "https://x.com/search?" + parse.urlencode({"q": query, "f": "live"})
 
 
+
+def make_other_platform_search_url(platform: str, name: str, claim: str) -> str:
+    """External discovery only; indexed snippets cannot prove account attribution."""
+    sites = {
+        "Facebook": "facebook.com",
+        "Instagram": "instagram.com",
+        "LinkedIn": "linkedin.com",
+    }
+    if platform not in sites:
+        raise SocialLookupError("Unsupported social discovery platform.")
+    subject = re.sub(r"[^\\w\\s.'-]", " ", str(name or ""))[:90].strip()
+    keywords = " ".join(_terms(suggest_query(claim), 4))
+    query = " ".join(x for x in [f"site:{sites[platform]}", subject, keywords] if x)
+    return "https://www.google.com/search?" + parse.urlencode({"q": query})
+
+
 def make_x_api_query(handle: str, claim: str) -> str:
     """Prevent external search operators from escaping the trusted from: filter."""
     handle = clean_handle(handle)
