@@ -81,7 +81,7 @@ def test_direct_post_author_id_matches_looked_up_account_id():
 
 
 def test_direct_post_from_different_account_rejected_for_attribution():
-    url = "https://x.com/unrelated_person/status/1978888888888888888"
+    url = "https://x.com/other_person/status/1978888888888888888"
     r = verify_post_link("public_official", url, CLAIM, "DEMO-SECRET",
                          transport=fake_transport)
     assert r["owner_matches"] is False
