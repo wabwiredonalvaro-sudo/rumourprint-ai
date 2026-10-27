@@ -46,7 +46,7 @@
     .section-head{display:flex;justify-content:space-between;align-items:end;gap:24px;margin:0 0 26px}
     .section-head h2{margin:0;font-size:clamp(25px,3vw,34px);letter-spacing:-.035em;line-height:1.18}
     .section-head p{margin:0;color:var(--muted);font-size:13px;max-width:440px}
-    .cards{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+    .cards{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}
     .card{background:#fff;border:1px solid var(--line);border-radius:13px;padding:27px 25px;box-shadow:0 8px 20px rgba(24,46,31,.025)}
     .number{font-size:11px;letter-spacing:.18em;color:var(--green);font-weight:800}
     .card h3{font-size:18px;line-height:1.28;letter-spacing:-.02em;margin:21px 0 10px}
@@ -90,7 +90,7 @@
     <div class="shell hero-inner">
       <p class="eyebrow">Fresh Exclusive Media · Digital verification tools</p>
       <h1>Investigate the claim.<br><span class="accent">Understand the change.</span></h1>
-      <p class="lede">Meet <strong>RUMOURPRINT AI</strong>, an investigation workspace for comparing suspicious messages, exploring related narratives and researching published evidence.</p>
+      <p class="lede">Meet <strong>RUMOURPRINT AI</strong>, an evidence-first investigative workspace for examining claims against original reporting, reviewing image provenance and tracking changing narratives.</p>
       <div class="actions">
         <a class="button primary" href="https://rumourprint-fem.streamlit.app/?embed=true" rel="noopener noreferrer" target="_blank">Launch web application <span aria-hidden="true">↗</span></a>
         <a class="button secondary" href="https://github.com/wabwiredonalvaro-sudo/rumourprint-ai/releases/download/android-v0.1.0-beta.1/RUMOURPRINT-AI-Android-Beta.apk">Download Android beta <span aria-hidden="true">↓</span></a>
@@ -107,7 +107,8 @@
     <div class="cards" aria-label="RUMOURPRINT capabilities">
       <article class="card"><span class="number">01 / INVESTIGATE</span><h3>Compare related claims</h3><p>Identify messages discussing the same topic despite changed wording, then examine where meaning or certainty may have shifted.</p></article>
       <article class="card"><span class="number">02 / VISUALISE</span><h3>Map narrative connections</h3><p>View similarity links and connected message groups in an interactive relationship map for further journalistic review.</p></article>
-      <article class="card"><span class="number">03 / RESEARCH</span><h3>Look for published evidence</h3><p>Explore related news headlines and available fact-check reviews, follow original sources and document findings.</p></article>
+      <article class="card"><span class="number">03 / VERIFY</span><h3>Compare article evidence</h3><p>Extract text from supported publisher articles, inspect cited passages, and record a preliminary assessment for human review.</p></article>
+      <article class="card"><span class="number">04 / IMAGES</span><h3>Review image provenance</h3><p>Inspect file metadata and signed Content Credentials for declared AI creation or editing. No trustworthy percentage of AI-generated pixels can be inferred.</p></article>
     </div>
 
     <aside class="trust" aria-label="Responsible use and Android download details">
