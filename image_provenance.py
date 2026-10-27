@@ -135,11 +135,18 @@ def analyse_image(content: bytes, filename: str = "") -> dict:
                         "c2pa.edited" in line.casefold() or "c2pa.opened" in line.casefold()
                         for line in result["actions"]
                     )
+                    history = (" ".join(result["actions"])).casefold()
                     if disclosed_ai:
-                        result["finding"] = "AI origin or manipulation declared"
+                        if "composite" in history or (edited and "c2pa.created" not in history):
+                            result["finding"] = "AI-assisted or composite edit declared"
+                        elif "trainedalgorithmicmedia" in history and "c2pa.created" in history:
+                            result["finding"] = "AI-generated origin declared"
+                        else:
+                            result["finding"] = "AI use declared — extent unclear"
                         result["reason"] = (
-                            "Content Credentials contain an AI-related declaration. "
-                            "Check the signer and validation state before treating it as verified provenance."
+                            "The active Content Credentials include an AI-related creation or editing declaration. "
+                            "This describes declared provenance, not an independent pixel-level detector. "
+                            "Check the issuer, validation status and full action history."
                         )
                     elif edited:
                         result["finding"] = "Editing history declared"
