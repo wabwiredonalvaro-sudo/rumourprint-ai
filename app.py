@@ -1,4 +1,4 @@
-"""RUMOURPRINT AI v0.7 — a professional newsroom application for narrative investigation and evidence-led verification."""
+"""RUMOURPRINT AI v0.9 — evidence-first research, editorial source comparison and image provenance."""
 from __future__ import annotations
 
 import csv
@@ -176,7 +176,7 @@ with st.sidebar:
           <div class="rp-side-status-title"><span class="rp-status-light"></span> Professional review required</div>
           <p>Similarity detection is not verification. Use the Evidence desk to gather source material and document editorial findings before publication.</p>
         </div>
-        <div class="rp-sidebar-footer">VERSION 0.8 <span>·</span> NEWSROOM EDITION</div>
+        <div class="rp-sidebar-footer">VERSION 0.9 <span>·</span> EVIDENCE-FIRST EDITION</div>
     ''', unsafe_allow_html=True)
 
 
