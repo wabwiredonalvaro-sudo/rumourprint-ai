@@ -17,6 +17,7 @@ from source_verification import fetch_article, compare_article_evidence, evidenc
 from image_provenance import analyse_image, image_report, ImageReviewError
 from social_verification import (
     SocialLookupError, clean_handle, parse_x_post_url, make_x_search_url,
+    make_other_platform_search_url,
     search_account_posts, verify_post_link, social_evidence_brief,
 )
 from network import build_network, figure_for_network, highlight_differences
@@ -581,6 +582,25 @@ elif page == "Evidence desk":
                     use_container_width=True,
                 )
             st.caption("Manual X search opens in your browser. Results may require X sign-in and are not exhaustive.")
+
+        with st.expander("Look for a public statement on Facebook, Instagram or LinkedIn"):
+            st.caption(
+                "Optional public web searches. Indexed snippets may omit posts, "
+                "cannot authenticate screenshots or prove who controls a social account, "
+                "and must be checked against the original public profile."
+            )
+            if person_name.strip() and social_claim.strip():
+                extra_cols = st.columns(3)
+                for column, platform in zip(extra_cols, ("Facebook", "Instagram", "LinkedIn")):
+                    with column:
+                        st.link_button(
+                            f"Search {platform}",
+                            make_other_platform_search_url(platform, person_name, social_claim),
+                            use_container_width=True,
+                        )
+            else:
+                st.caption("Enter the person or organisation name and a claim to enable these search links.")
+
 
         try:
             x_token = str(st.secrets.get("X_BEARER_TOKEN", "") or "").strip()
