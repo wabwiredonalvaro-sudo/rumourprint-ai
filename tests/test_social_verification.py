@@ -170,3 +170,24 @@ def test_social_comparison_reports_text_not_truth():
         "The national assembly postponed its session until next Wednesday.",
         "The national assembly has NOT postponed its session until next Wednesday."
     )["label"]
+
+
+def test_other_platform_search_links_are_public_discovery_not_attribution():
+    from urllib.parse import parse_qs, urlparse
+    from social_verification import make_other_platform_search_url
+
+    for name, domain in [
+        ("Facebook", "facebook.com"),
+        ("Instagram", "instagram.com"),
+        ("LinkedIn", "linkedin.com"),
+    ]:
+        url = make_other_platform_search_url(
+            name, "Test Public Official", "The assembly cancelled its Monday hearing."
+        )
+        assert url.startswith("https://www.google.com/search?")
+        query = parse_qs(urlparse(url).query)["q"][0]
+        assert "site:" + domain in query
+        assert "Test Public Official" in query
+        assert "assembly" in query
+    with pytest.raises(SocialLookupError):
+        make_other_platform_search_url("Untrusted", "Person", "Claim")
