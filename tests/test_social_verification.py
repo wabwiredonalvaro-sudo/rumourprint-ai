@@ -191,3 +191,24 @@ def test_other_platform_search_links_are_public_discovery_not_attribution():
         assert "assembly" in query
     with pytest.raises(SocialLookupError):
         make_other_platform_search_url("Untrusted", "Person", "Claim")
+
+
+
+def test_direct_retweet_does_not_count_as_person_authoring_statement():
+    def transport(path, params, token):
+        if path.startswith("/2/users/"):
+            return PROFILE
+        return {"data": dict(PUBLIC_POST, referenced_tweets=[{
+            "type": "retweeted", "id": "1970000000000000000"
+        }])}
+    r = verify_post_link(
+        "public_official",
+        "https://x.com/public_official/status/1977777777777777777",
+        CLAIM,
+        "DEMO-SECRET",
+        transport=transport,
+    )
+    assert r["owner_matches"] is True
+    assert r["repost"] is True
+    assert r["post"] is None
+    assert "did not author" in r["finding"]
