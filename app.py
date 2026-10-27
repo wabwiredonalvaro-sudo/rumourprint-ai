@@ -751,7 +751,12 @@ elif page == "Evidence desk":
 
         if direct_result:
             st.markdown("**Direct post author check**")
-            if direct_result["owner_matches"]:
+            if direct_result["owner_matches"] and direct_result.get("repost"):
+                st.warning(
+                    "X confirms the selected account reposted another account's content. "
+                    "This does NOT establish that this person authored the original statement."
+                )
+            elif direct_result["owner_matches"]:
                 st.success(
                     "X attributes the supplied post ID to this account ID. "
                     "The person's identity and the meaning of the statement still require independent review."
