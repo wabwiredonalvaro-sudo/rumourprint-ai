@@ -15,6 +15,10 @@ from semantic import MODEL_NAME, load_local_model
 from evidence import search_news, search_fact_checks, suggest_query, broaden_query, build_brief, EvidenceError
 from source_verification import fetch_article, compare_article_evidence, evidence_report, ArticleAccessError
 from image_provenance import analyse_image, image_report, ImageReviewError
+from social_verification import (
+    SocialLookupError, clean_handle, parse_x_post_url, make_x_search_url,
+    search_account_posts, verify_post_link, social_evidence_brief,
+)
 from network import build_network, figure_for_network, highlight_differences
 
 APP_DIR = Path(__file__).resolve().parent
@@ -315,11 +319,11 @@ elif page == "Evidence desk":
     st.markdown("""
         <div class="rp-page-header">
           <div class="rp-page-kicker">WORKSPACE <span>/</span> EVIDENCE DESK</div>
-          <h1>Verify evidence. Investigate images<span class="rp-title-dot">.</span></h1>
-          <p>Review original publisher articles, compare claim wording, and inspect image provenance. Results are research leads for human editorial review, not automatic truth verdicts.</p>
+          <h1>Verify claims. Trace original sources<span class="rp-title-dot">.</span></h1>
+          <p>Research original reporting, investigate attributed statements on public social accounts, and inspect image provenance. Results always require editorial review.</p>
         </div>""", unsafe_allow_html=True)
 
-    article_tab, image_tab = st.tabs(["Article evidence", "Image provenance"])
+    article_tab, social_tab, image_tab = st.tabs(["Article evidence", "Official social accounts", "Image provenance"])
     with article_tab:
         initialise_evidence_search_terms()
         claim_input = st.text_area(
@@ -522,6 +526,259 @@ elif page == "Evidence desk":
                 file_name="rumourprint_research_brief.md", mime="text/markdown",
             )
         st.caption("A publisher review rating cannot be copied to a different claim. Always check exact dates, attribution, context and original records.")
+
+    with social_tab:
+        st.subheader("Did this person publish the statement on X?")
+        st.caption(
+            "Check public X posts attributed to a specific @handle. An original account post can confirm "
+            "that the account published wording, but it does not automatically confirm that the named person owns "
+            "the account or that the statement is true."
+        )
+        if st.button("Use the claim from Article Evidence", key="x_copy_claim"):
+            st.session_state["x_claim"] = claim_input
+            st.session_state.pop("x_search_result", None)
+            st.session_state.pop("x_direct_result", None)
+            st.rerun()
+        social_claim = st.text_area(
+            "ALLEGED QUOTE OR CLAIM",
+            value=claim_input,
+            height=95,
+            max_chars=1500,
+            key="x_claim",
+            placeholder="Enter the statement allegedly made by this person.",
+        )
+        social_handle_raw = st.text_input(
+            "X ACCOUNT TO CHECK (@HANDLE)",
+            placeholder="@example",
+            key="x_handle",
+            help="Use the account's actual @handle, not the person's display name. Check its official ownership independently.",
+        )
+        person_name = st.text_input(
+            "PERSON OR ORGANISATION CLAIMED TO OWN THE ACCOUNT (OPTIONAL)",
+            placeholder="Name for your journalist's notes",
+            max_chars=120,
+            key="x_person",
+        )
+        st.info(
+            "A blue X checkmark normally reflects Premium subscription, not proof of personal identity. "
+            "Verify ownership through an official website, independent institutional profile, or a direct on-record confirmation."
+        )
+
+        try:
+            x_handle = clean_handle(social_handle_raw)
+        except SocialLookupError:
+            x_handle = ""
+        if social_handle_raw.strip() and not x_handle:
+            st.warning("Enter an X handle such as @example (without spaces or a profile URL).")
+
+        if x_handle:
+            cols = st.columns(2)
+            with cols[0]:
+                st.link_button("Open original X profile", f"https://x.com/{x_handle}", use_container_width=True)
+            with cols[1]:
+                st.link_button(
+                    "Search this account on X", make_x_search_url(x_handle, social_claim),
+                    use_container_width=True,
+                )
+            st.caption("Manual X search opens in your browser. Results may require X sign-in and are not exhaustive.")
+
+        try:
+            x_token = str(st.secrets.get("X_BEARER_TOKEN", "") or "").strip()
+            x_access_code = str(st.secrets.get("X_SOCIAL_CHECK_ACCESS_CODE", "") or "").strip()
+        except (FileNotFoundError, KeyError):
+            x_token = ""
+            x_access_code = ""
+
+        x_auth_ready = bool(x_token)
+        if x_access_code:
+            supplied_access_code = st.text_input(
+                "Newsroom access code for X API lookups", type="password",
+                key="x_social_access_code",
+                help="Optional administrator-controlled access to paid API lookups; do not enter your X account password.",
+            )
+            import hmac
+            x_auth_ready = x_auth_ready and hmac.compare_digest(supplied_access_code, x_access_code)
+
+        if not x_token:
+            st.warning(
+                "Automatic X account verification is not enabled yet. "
+                "Fresh Exclusive Media must configure its own X Developer API bearer token in "
+                "the Streamlit app's Secrets. Until then, use the direct X profile/search links above "
+                "and check original posts manually. No automated X lookup has been performed."
+            )
+        elif not x_auth_ready:
+            st.caption("Automatic X search is restricted to authorised newsroom users.")
+        else:
+            st.success("X API access configured: original public post checks are available.")
+            st.caption(
+                "API requests may incur X usage charges. Each click requests a profile and up to 10 posts; "
+                "the app will not scrape private accounts or automatically search in the background."
+            )
+
+        st.markdown("**Search an account's public posts**")
+        search_period = st.radio(
+            "Search coverage",
+            ["Recent 7 days", "Full archive (requires eligible X API access)"],
+            key="x_search_window",
+            horizontal=True,
+            help="X recent search is limited to approximately seven days. Older statements require full-archive API access.",
+        )
+        if st.button(
+            "Check X account for this claim",
+            key="x_check_account",
+            type="primary",
+            disabled=not x_auth_ready,
+        ):
+            if not x_handle or len(social_claim.strip()) < 8:
+                st.warning("Enter the X account handle and a specific claim first.")
+            else:
+                try:
+                    with st.spinner("Checking public posts directly through X..."):
+                        result = search_account_posts(
+                            x_handle, social_claim, x_token,
+                            archive=search_period.startswith("Full archive"),
+                        )
+                    st.session_state["x_search_result"] = {
+                        "handle": x_handle.casefold(), "claim": social_claim.strip(), "data": result,
+                    }
+                    st.success("X account search completed. Read the limitations and open the original posts.")
+                except SocialLookupError as exc:
+                    st.session_state.pop("x_search_result", None)
+                    st.warning(str(exc))
+
+        st.markdown("**Or verify a particular X post URL**")
+        original_post = st.text_input(
+            "ORIGINAL X POST LINK (OPTIONAL)",
+            placeholder="https://x.com/example/status/1234567890123456789",
+            key="x_direct_link",
+            help="Paste the original X link from the screenshot or forwarded message.",
+        )
+        valid_post = None
+        if original_post.strip():
+            try:
+                valid_post = parse_x_post_url(original_post)
+                st.link_button("Open supplied X post manually", valid_post["url"])
+            except SocialLookupError as exc:
+                st.warning(str(exc))
+        if st.button(
+            "Verify author of supplied post",
+            key="x_check_post",
+            disabled=not x_auth_ready,
+        ):
+            if not x_handle or not valid_post:
+                st.warning("Enter a valid X handle and the original X post URL.")
+            else:
+                try:
+                    with st.spinner("Checking the post's author ID directly with X..."):
+                        result = verify_post_link(x_handle, valid_post["url"], social_claim, x_token)
+                    st.session_state["x_direct_result"] = {
+                        "handle": x_handle.casefold(), "claim": social_claim.strip(),
+                        "post_id": valid_post["post_id"], "data": result,
+                    }
+                except SocialLookupError as exc:
+                    st.session_state.pop("x_direct_result", None)
+                    st.warning(str(exc))
+
+        results = st.session_state.get("x_search_result", {})
+        current = (results.get("handle") == x_handle.casefold() and
+                   results.get("claim") == social_claim.strip())
+        x_result = results.get("data") if current else None
+        direct = st.session_state.get("x_direct_result", {})
+        post_current = (
+            direct.get("handle") == x_handle.casefold() and
+            direct.get("claim") == social_claim.strip() and
+            bool(valid_post) and direct.get("post_id") == valid_post["post_id"]
+        )
+        direct_result = direct.get("data") if post_current else None
+
+        if x_result or direct_result:
+            st.divider()
+            st.subheader("X source findings — editorial review required")
+            active_result = direct_result or x_result
+            account = active_result["account"]
+            st.markdown(f"**Account found on X:** {escape(account['name'])} (@{escape(account['username'])})")
+            st.caption(f"X account ID: {account['id']} · Identity independently verified: NO")
+            st.link_button("Open profile to inspect account identity", account["profile_url"])
+            if person_name.strip():
+                st.caption(f"Alleged person or organisation: {person_name.strip()[:120]} — compare against an independently controlled official profile.")
+            st.warning(
+                "Do not publish 'the person said this' from the X handle alone. "
+                "Check account ownership, original post, date, quoted statements, replies and possible edits."
+            )
+
+        if x_result:
+            st.markdown("**Account-restricted X search**")
+            st.info(x_result["finding"])
+            st.caption(f"Search: {x_result['query']} · Window: {x_result['mode']} · Checked: {x_result['checked_at']}")
+            st.caption(x_result["coverage"])
+            if not x_result["posts"]:
+                st.write(
+                    "No matching accessible posts were returned in this limited search. "
+                    "This is NOT evidence that the person never said it or that the claim is false."
+                )
+            for i, x_post in enumerate(x_result["posts"], 1):
+                with st.expander(
+                    f"{i}. {x_post['comparison']['label']} · {x_post['published_at']}",
+                    expanded=i == 1,
+                ):
+                    st.write("“" + " ".join(x_post["text"].split()[:25]) +
+                             ("…" if len(x_post["text"].split()) > 25 else "") + "”")
+                    st.caption(
+                        f"{x_post['kind']} · Published: {x_post['published_at']} · "
+                        "Similarity refers to words, not truth, intent or identity."
+                    )
+                    st.link_button("Open original X post", x_post["url"])
+
+        if direct_result:
+            st.markdown("**Direct post author check**")
+            if direct_result["owner_matches"]:
+                st.success(
+                    "X attributes the supplied post ID to this account ID. "
+                    "The person's identity and the meaning of the statement still require independent review."
+                )
+                source_post = direct_result.get("post")
+                if source_post:
+                    st.write("“" + " ".join(source_post["text"].split()[:25]) +
+                             ("…" if len(source_post["text"].split()) > 25 else "") + "”")
+                    st.caption(
+                        f"{source_post['kind']} · {source_post['published_at']} · "
+                        f"{direct_result['comparison']['label']}"
+                    )
+            else:
+                st.error(
+                    "The supplied X post was authored by a different X account ID. "
+                    "Do not attribute it to the queried account."
+                )
+            st.link_button("Inspect original X post", direct_result["post_url"])
+
+        if x_result or direct_result:
+            st.markdown("**Editorial attribution decision**")
+            owner_confirmed = st.checkbox(
+                "I independently checked that this X account belongs to the named person or organisation.",
+                key="x_identity_reviewed",
+            )
+            x_notes = st.text_area(
+                "JOURNALIST'S SOURCE NOTES",
+                key="x_source_notes",
+                placeholder="Link to the official website naming this handle; original statement context; date; why a quotation is supported or disputed.",
+            )
+            st.download_button(
+                "Download social-account evidence brief (.md)",
+                social_evidence_brief(
+                    x_handle, social_claim, direct_result or x_result, x_notes, owner_confirmed,
+                ),
+                file_name="rumourprint_x_account_research.md",
+                mime="text/markdown",
+            )
+            st.caption(
+                "The downloaded report records research evidence, not a conclusive verdict. "
+                "X deleted posts, earlier handle changes or older posts outside the selected search window may not be returned."
+            )
+        else:
+            st.caption(
+                "No API-verified account post has been examined in this session. "
+                "A screenshot, search snippet or unverified handle is insufficient proof of attribution."
+            )
 
     with image_tab:
         st.subheader("Image authenticity & Content Credentials")
