@@ -5,6 +5,7 @@ import csv
 import html
 import io
 from datetime import datetime, timezone
+from hashlib import sha256
 from pathlib import Path
 
 import streamlit as st
@@ -516,8 +517,9 @@ elif page == "Evidence desk":
             help="Avoid faces and private imagery unless you have permission. No third-party AI API receives the image from this tool.",
         )
         if upload is not None:
-            st.image(upload, caption="Uploaded image for visual review", width=450)
-            if st.button("Inspect image provenance", type="primary"):
+            if upload.size > 8 * 1024 * 1024:
+                st.warning("This image exceeds the 8 MB analysis limit. Choose a smaller image.")
+            if st.button("Inspect image provenance", type="primary", disabled=upload.size > 8 * 1024 * 1024):
                 try:
                     with st.spinner("Inspecting file, metadata and Content Credentials..."):
                         st.session_state.image_review = analyse_image(upload.getvalue(), upload.name)
@@ -525,7 +527,8 @@ elif page == "Evidence desk":
                 except ImageReviewError as exc:
                     st.error(str(exc))
         img = st.session_state.get("image_review")
-        if img and (upload is not None and upload.name == img["filename"]):
+        if img and upload is not None and sha256(upload.getvalue()).hexdigest() == img["sha256"]:
+            st.image(upload, caption="Analysed image — always verify its original source", width=450)
             st.subheader("Image provenance findings")
             p1, p2, p3 = st.columns(3)
             with p1:
