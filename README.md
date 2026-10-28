@@ -8,6 +8,7 @@ Evidence-first journalism research and narrative investigation workspace, **powe
 - **Evidence desk (default landing page):** search published claims, extract supported publisher article text and present cited passages with a conservative preliminary assessment for **mandatory human editorial review**.
 - **Official social accounts:** check specified public X handles or direct post URLs for original statements using X's official API where newsroom access is configured. Explore manual public-search links for X, Facebook, Instagram and LinkedIn. An X badge or text match does **not** establish a person's identity.
 - **Image provenance:** inspect uploaded JPG, PNG and WebP files for basic metadata and Content Credentials. No method here determines a reliable percentage of AI-generated or edited pixels.
+- **Image source research (optional):** retrieve Google Lens exact/visual matches and Google's AI Overview when available through SerpApi. Show attributed explanation, per-passage source links and a downloadable research brief; results do not independently establish fabrication or the original creator.
 - **Relationship map:** explore similarity connections and compare wording differences. This is **not** a chronology or a social-media propagation graph.
 - **Claim library:** import/export CSV case material within your browser session.
 - **About & ethics:** clear disclosure of limitations.
@@ -39,6 +40,12 @@ See [Official Social Accounts setup](docs/official-social-accounts.md).
 ### Optional fact-check API
 
 The Evidence desk can optionally use a Google Fact Check Tools API key pasted into the password field for that active session. Do not include keys in GitHub. News headlines work without an API key. An API key in this version is not stored permanently.
+
+### Optional Google Lens image source research
+
+In Streamlit Secrets, configure `SERPAPI_API_KEY` and `IMAGE_SEARCH_ACCESS_CODE` (both required). Do not put credentials in GitHub. Visitors enter the newsroom access code, agree to share their image and click **Search image sources**. This uses actual Google Lens results retrieved by the third-party SerpApi service, rather than Google's separate Cloud Vision API. No Gemini or other generative-model API key is needed for the retrieved Google AI Overview.
+
+Each click uploads a metadata-stripped, resized search copy, retrieves Lens results and candidate exact matches, and optionally retrieves an available Google AI Overview. Up to three search requests plus one upload can occur. Configure provider-side credit limits before enabling the service; session limits are only a secondary safeguard. Results and explanation availability can differ from a user's browser search. See [image source research setup and limitations](docs/image-source-search.md).
 
 ## Run locally
 
