@@ -15,6 +15,7 @@ from semantic import MODEL_NAME, load_local_model
 from evidence import search_news, search_fact_checks, suggest_query, broaden_query, build_brief, EvidenceError
 from source_verification import fetch_article, compare_article_evidence, evidence_report, ArticleAccessError
 from image_provenance import analyse_image, image_report, ImageReviewError
+from image_source_ui import render_image_source_trace
 from social_verification import (
     SocialLookupError, clean_handle, parse_x_post_url, make_x_search_url,
     make_other_platform_search_url,
@@ -819,7 +820,7 @@ elif page == "Evidence desk":
             "UPLOAD AN IMAGE (JPG, PNG OR WEBP, UP TO 8 MB)",
             type=["jpg", "jpeg", "png", "webp"],
             key="image_provenance_upload",
-            help="Avoid faces and private imagery unless you have permission. No third-party AI API receives the image from this tool.",
+            help="Use publicly shareable images. Metadata inspection stays on the app server; optional source search below sends a search copy to SerpApi and Google Lens after your agreement and button click.",
         )
         if upload is not None:
             if upload.size > 8 * 1024 * 1024:
@@ -866,6 +867,7 @@ elif page == "Evidence desk":
                 mime="text/markdown",
             )
         st.caption("C2PA is a cryptographically signed provenance standard. Traditional EXIF metadata can be altered. Absence of signed credentials is inconclusive.")
+        render_image_source_trace(upload)
 
 elif page == "Relationship map":
     st.markdown("""
