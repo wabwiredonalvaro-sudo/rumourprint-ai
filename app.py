@@ -22,6 +22,7 @@ from picture_research import (
     human_picture_story, read_words_in_picture, reverse_picture_search, PictureResearchError,
 )
 from image_provenance import analyse_image, ImageReviewError
+from community_reviews import approved_reviews, submit_review, ReviewError, ROLES, claim_key
 
 
 APP_DIR = Path(__file__).resolve().parent
@@ -435,6 +436,114 @@ if saved_claim:
         file_name="rumourprint-research-links.md", mime="text/markdown",
         use_container_width=True,
     )
+
+
+if saved_claim:
+    st.divider()
+    st.markdown("### 💬 What did other people find?")
+    st.write(
+        "Read what earlier visitors found when checking exactly this claim. "
+        "These are reader notes, not final answers. Always open the original source."
+    )
+    review_url = secret("SUPABASE_URL")
+    review_key = secret("SUPABASE_SERVICE_ROLE_KEY")
+    reviews_ready = bool(review_url and review_key)
+    if reviews_ready:
+        try:
+            @st.cache_data(ttl=120, show_spinner=False)
+            def _community_lookup(claim_text: str, db_url: str, _db_key: str):
+                return approved_reviews(claim_text, db_url, _db_key)
+
+            with st.spinner("Checking earlier readers' notes…"):
+                earlier_notes = _community_lookup(saved_claim, review_url, review_key)
+            if earlier_notes:
+                for i, note in enumerate(earlier_notes, 1):
+                    with st.container(border=True):
+                        st.markdown(f"**Earlier reader note {i}**")
+                        st.write(note["text"])
+                        st.caption(
+                            f"{note['role']} (not independently verified) · "
+                            f"{note['date'] or 'date not available'} · Approved for display by FEM"
+                        )
+                        if note["source"]:
+                            st.link_button("Open the source shared by this reader ↗", note["source"])
+            else:
+                st.caption("No approved notes yet for this exact wording. You could be the first to help.")
+        except ReviewError:
+            st.caption("Earlier reader notes could not be loaded at the moment. Search results remain available.")
+    else:
+        st.info(
+            "Community notes are not connected yet. We will only show other people's "
+            "reviews after FEM enables secure storage and checks submissions before publication."
+        )
+
+    with st.expander("Share what you found — help the next reader"):
+        st.write(
+            "Summarise what the original articles or posts actually showed. "
+            "Your note must be reviewed by FEM before it can appear for others. "
+            "Please don't include phone numbers, personal details or private messages."
+        )
+        note_role = st.selectbox(
+            "I am contributing as",
+            ROLES,
+            key="community_role",
+            help="Self-described roles are not identity or professional-credential verification.",
+        )
+        note_text = st.text_area(
+            "What did you find?",
+            key="community_note",
+            height=105,
+            max_chars=700,
+            placeholder="For example: I checked the university's official notice. It describes a timetable change. Source link below.",
+        )
+        note_source = st.text_input(
+            "Link to the original source (optional)",
+            key="community_source",
+            placeholder="https://...",
+        )
+        consent = st.checkbox(
+            "I agree that FEM may review this note and show it to other readers without my name.",
+            key="community_consent",
+        )
+        if not reviews_ready:
+            st.caption(
+                "Publishing reader reviews requires FEM to connect a moderated database. "
+                "You can still download your note for your own records."
+            )
+        current_key = claim_key(saved_claim)
+        already_sent = current_key in st.session_state.get("community_submissions", [])
+        if already_sent:
+            st.success("You have already submitted a note for this claim in this session.")
+        if st.button(
+            "Send my note for review",
+            disabled=not reviews_ready or not consent or already_sent or len(note_text.strip()) < 35,
+            type="primary",
+            key="send_community_note",
+            use_container_width=True,
+        ):
+            try:
+                message = submit_review(
+                    saved_claim, note_text, note_role, note_source, review_url, review_key
+                )
+                if "community_submissions" not in st.session_state:
+                    st.session_state["community_submissions"] = []
+                st.session_state["community_submissions"].append(current_key)
+                st.success(message)
+            except ReviewError as exc:
+                st.warning(str(exc))
+        if note_text.strip():
+            st.download_button(
+                "Save my note to my phone",
+                f"RUMOURPRINT AI — My own investigation note\n\n"
+                f"Claim: {saved_claim}\n"
+                f"Where I saw it: {st.session_state.get('investigated_origin', '')}\n"
+                f"Source: {note_source}\n"
+                f"What I found: {note_text}\n\n"
+                "This is a personal note, not an independently verified fact-check.\n",
+                file_name="rumourprint-my-review.txt",
+                mime="text/plain",
+                use_container_width=True,
+            )
 
 st.markdown(
     '<div class="rp-trust-strip"><strong>Our promise to you</strong>'
