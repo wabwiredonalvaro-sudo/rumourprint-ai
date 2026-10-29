@@ -117,7 +117,7 @@ def research_brief(claim: str, origin: str, news: dict | None, social: dict | No
 # One short page; no separate technical desks.
 st.markdown(
     '<div class="rp-hero">'
-    '<div class="rp-eyebrow">FRESH EXCLUSIVE MEDIA <span> / </span> COMMUNITY INFORMATION TOOL</div>'
+    '<div class="rp-eyebrow">RUMOURPRINT AI <span> / </span> COMMUNITY INFORMATION TOOL</div>'
     f'<div class="rp-logo-row"><div class="rp-logo-icon"><img src="data:image/svg+xml;base64,{ORIGINAL_LOGO_BASE64}" alt="Original RUMOURPRINT AI logo"></div>'
     '<div class="rp-brand">RUMOURPRINT<span> AI</span><small>Investigate the claim. You decide.</small></div></div>'
     '<h1>Seen something suspicious?<br><em>Check the story.</em></h1>'
@@ -492,7 +492,7 @@ if saved_claim:
                         st.write(note["text"])
                         st.caption(
                             f"{note['role']} (not independently verified) · "
-                            f"{note['date'] or 'date not available'} · Approved for display by FEM"
+                            f"{note['date'] or 'date not available'} · Approved for display by RUMOURPRINT"
                         )
                         if note["source"]:
                             st.link_button("Open the source shared by this reader ↗", note["source"])
@@ -503,13 +503,13 @@ if saved_claim:
     else:
         st.info(
             "Community notes are not connected yet. We will only show other people's "
-            "reviews after FEM enables secure storage and checks submissions before publication."
+            "reviews after RUMOURPRINT enables secure storage and checks submissions before publication."
         )
 
     with st.expander("Share what you found — help the next reader"):
         st.write(
             "Summarise what the original articles or posts actually showed. "
-            "Your note must be reviewed by FEM before it can appear for others. "
+            "Your note must be reviewed by RUMOURPRINT before it can appear for others. "
             "Please don't include phone numbers, personal details or private messages."
         )
         note_role = st.selectbox(
@@ -531,12 +531,12 @@ if saved_claim:
             placeholder="https://...",
         )
         consent = st.checkbox(
-            "I agree that FEM may review this note and show it to other readers without my name.",
+            "I agree that RUMOURPRINT may review this note and show it to other readers without my name.",
             key="community_consent",
         )
         if not reviews_ready:
             st.caption(
-                "Publishing reader reviews requires FEM to connect a moderated database. "
+                "Publishing reader reviews requires RUMOURPRINT to connect a moderated database. "
                 "You can still download your note for your own records."
             )
         current_key = claim_key(saved_claim)
@@ -584,7 +584,7 @@ st.markdown(
 )
 st.markdown(
     '<div class="rp-footer"><strong>RUMOURPRINT AI</strong> · Powered by '
-    '<strong>Fresh Exclusive Media</strong> · Ubuntu-inspired human-first design · '
+    '<strong>RUMOURPRINT AI</strong> · Ubuntu-inspired human-first design · '
     '<a href="https://tools.freshexclusivemedia.com/privacy.html" target="_blank">Privacy &amp; safe use</a>'
     '</div>',
     unsafe_allow_html=True,

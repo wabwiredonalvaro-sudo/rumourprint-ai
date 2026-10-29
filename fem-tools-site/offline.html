@@ -68,7 +68,7 @@ button:disabled{opacity:.55;cursor:not-allowed}.small{font-size:12px;color:var(-
 </form>
 </section>
 <article class="reader" id="reader" hidden><div class="tag" id="reader-tag"></div><h2 id="reader-title"></h2><div id="reader-body"></div><p id="reader-link"></p><button class="btn" id="reader-close">← Back to library</button></article>
-<footer><p>Offline reading is available only after this page has been downloaded on the device, and until local data is cleared. New versions are checked whenever this page opens with a connection. Source websites open only online.</p><p>Powered by Fresh Exclusive Media · <a href="/privacy.html">Privacy & responsible use</a></p></footer>
+<footer><p>Offline reading is available only after this page has been downloaded on the device, and until local data is cleared. New versions are checked whenever this page opens with a connection. Source websites open only online.</p><p>RUMOURPRINT AI — Built for everyone · <a href="/privacy.html">Privacy & responsible use</a></p></footer>
 </main>
 <script>
 "use strict";
@@ -106,7 +106,7 @@ function renderCards(items,target,local){
   const card=document.createElement("article");card.className="card";
   card.append(textNode("span",local?"Saved story":item.category||"Reading guide","tag"),
               textNode("h2",item.title));
-  if(!local)card.append(textNode("p","Original FEM article · "+(item.updated||"")));
+  if(!local)card.append(textNode("p","Original RUMOURPRINT guide · "+(item.updated||"")));
   const button=textNode("button","Read this story →","btn primary");button.type="button";button.onclick=()=>readItem(item,local);card.append(button);
   if(local){const del=textNode("button","Remove saved story","btn");del.onclick=()=>{
    if(confirm("Remove this saved story from this phone?")){

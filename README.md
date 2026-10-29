@@ -1,6 +1,6 @@
 # RUMOURPRINT AI — Community Edition
 
-**Powered by Fresh Exclusive Media** · Hackathon theme: **AI against disinformation**
+**RUMOURPRINT AI — Built for everyone** · Hackathon theme: **AI against disinformation**
 
 RUMOURPRINT AI helps everyday smartphone users investigate suspicious messages **without issuing automatic true/false verdicts**. It shows original source links so each visitor can examine the information and make their own decision.
 
@@ -13,7 +13,7 @@ RUMOURPRINT AI helps everyday smartphone users investigate suspicious messages *
    - **News:** related articles and public fact-check links.
    - **Social media search:** public posts, search links, and institution-linked account candidates.
    - **Image search:** extract text from a screenshot, examine photo information and, when enabled with consent, find sites containing matching photos.
-5. Read original sources, download a link summary, and optionally share what they found for FEM moderation.
+5. Read original sources, download a link summary, and optionally share what they found for RUMOURPRINT moderation.
 
 No special terms, model/API keys or accounts are required for the basic public investigation flow.
 
@@ -35,13 +35,13 @@ No public user needs to enter an API key. The app owner may configure these priv
 | GOOGLE_FACTCHECK_API_KEY | Published third-party fact-check reviews |
 | X_BEARER_TOKEN + ENABLE_PUBLIC_X_SEARCH=true | Recent public X posts from official X API |
 | GOOGLE_CLOUD_VISION_API_KEY | Consented picture matches using Google Cloud Vision WEB_DETECTION |
-| SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY | Optional shared reader notes, pending FEM moderation |
+| SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY | Optional shared reader notes, pending RUMOURPRINT moderation |
 
 The app still searches Google News RSS without any paid search key. It does not promise complete internet coverage. X accounts and names require external identity confirmation. The image tool does not identify faces or estimate a reliable percentage of AI-generated pixels.
 
 ## Shared community notes
 
-Readers can add a short description of what they found and a public source URL. If FEM has enabled a secure database, the note is sent for moderation and becomes visible only after approval. Otherwise visitors can download their own note for personal use. Reviewer roles are self-described, not authenticated. Approved notes are not official verdicts.
+Readers can add a short description of what they found and a public source URL. If RUMOURPRINT has enabled a secure database, the note is sent for moderation and becomes visible only after approval. Otherwise visitors can download their own note for personal use. Reviewer roles are self-described, not authenticated. Approved notes are not official verdicts.
 
 See [Community review and offline setup](docs/community-offline.md).
 
@@ -56,7 +56,7 @@ See [Community review and offline setup](docs/community-offline.md).
 | picture_research.py, image_provenance.py | Text reading, image provenance and consented web matches |
 | community_reviews.py | Pending moderation of optional reader notes |
 | offline.html, offline-library.json, sw.js | Offline browser reader and PWA caching |
-| fem-tools-site/ | Cloudflare Pages copy of the official FEM Tools portal |
+| fem-tools-site/ | Cloudflare Pages copy of the official RUMOURPRINT Tools portal |
 | android-app/ | Android WebView wrapper and bundled offline reader |
 | tests/ | Offline unit and Streamlit startup tests |
 

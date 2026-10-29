@@ -2,7 +2,7 @@
 
 ## Activating moderated reader notes
 
-FEM must connect its own Supabase project before other visitors can read one another's contributions. This is not enabled merely by uploading the source code.
+RUMOURPRINT must connect its own Supabase project before other visitors can read one another's contributions. This is not enabled merely by uploading the source code.
 
 1. Create a project at https://supabase.com/ and open **SQL Editor**.
 2. Run the versioned table setup in [community_reviews_schema.sql](community_reviews_schema.sql).
@@ -14,11 +14,11 @@ FEM must connect its own Supabase project before other visitors can read one ano
 **Security:** The service-role credential must never be placed in GitHub or browser code. It bypasses row-level security; restrict administration access and rotate it if exposed. Public launch also requires abuse-rate limits, removal/report procedures and a moderation team.
 
 ## Shared reviews
-The app can store consent-based reader notes in a Supabase table named rumourprint_reviews. All submissions start pending and are visible to later readers only after an FEM moderator approves them. Without database configuration, people can download their own note but cannot publish it to other users.
+The app can store consent-based reader notes in a Supabase table named rumourprint_reviews. All submissions start pending and are visible to later readers only after an RUMOURPRINT moderator approves them. Without database configuration, people can download their own note but cannot publish it to other users.
 
 The backend expects two private Streamlit settings: SUPABASE_URL (the HTTPS project URL) and SUPABASE_SERVICE_ROLE_KEY (a server-side key). Never expose the key in GitHub or frontend code. Enable row-level security and disallow anonymous direct table access.
 
-Required table columns: id (UUID, primary key), claim_hash (text), reviewer_role (text), review_text (text), source_url (nullable text), origin (text), status (pending / approved / rejected), created_at (timestamp). Default status must be pending. Index claim_hash, status and created_at. FEM moderators use the database admin panel to review the quoted source before approving a note.
+Required table columns: id (UUID, primary key), claim_hash (text), reviewer_role (text), review_text (text), source_url (nullable text), origin (text), status (pending / approved / rejected), created_at (timestamp). Default status must be pending. Index claim_hash, status and created_at. RUMOURPRINT moderators use the database admin panel to review the quoted source before approving a note.
 
 Production readiness requires global spam limits, moderation capacity, reporting and deletion procedures, and privacy review. The reader's role is self-described, not validated professional accreditation. An approved reader note is not a truth verdict.
 
