@@ -23,6 +23,7 @@ from picture_research import (
 )
 from image_provenance import analyse_image, ImageReviewError
 from community_reviews import approved_reviews, submit_review, ReviewError, ROLES, claim_key
+from institution_accounts import suggested_institution_accounts
 
 
 APP_DIR = Path(__file__).resolve().parent
@@ -291,6 +292,23 @@ with socials_tab:
         st.caption("These buttons open searches for your claim. Some social sites need you to sign in.")
         for platform, link in social["search_links"].items():
             st.link_button("Search on " + platform + " ↗", link, use_container_width=True)
+
+        suggested_accounts = suggested_institution_accounts(saved_claim)
+        if suggested_accounts:
+            st.markdown("#### Accounts linked to institutions mentioned")
+            st.caption(
+                "These are possible official accounts named or linked from institutional sources. "
+                "Always confirm the current account directly on the institution's own website."
+            )
+            for account in suggested_accounts:
+                with st.container(border=True):
+                    st.markdown(f"**{account['name']} — @{account['handle']}**")
+                    st.caption(account["warning"])
+                    st.link_button("Look for original posts by this account", account["x_search"],
+                                   use_container_width=True)
+                    st.link_button("Check the institution's own website or public notice",
+                                   account["source"], use_container_width=True)
+
         people = social.get("possible_names") or []
         if people:
             st.markdown("#### People or organisations to check")
