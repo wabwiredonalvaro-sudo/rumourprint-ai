@@ -295,7 +295,7 @@ with socials_tab:
 
         suggested_accounts = suggested_institution_accounts(saved_claim)
         if suggested_accounts:
-            st.markdown("#### Accounts linked to institutions mentioned")
+            st.markdown("#### Accounts linked to people or organisations mentioned")
             st.caption(
                 "These are possible official accounts named or linked from institutional sources. "
                 "Always confirm the current account directly on the institution's own website."
