@@ -122,6 +122,13 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+st.link_button(
+    "📚 Read helpful articles without internet (download once)",
+    "https://tools.freshexclusivemedia.com/offline.html",
+    use_container_width=True,
+)
+st.caption("The reading library saves guides on your phone after the first visit. Live investigations still need internet.")
+
 if "public_claim" not in st.session_state:
     st.session_state.public_claim = ""
 if "origin" not in st.session_state:
