@@ -5,6 +5,7 @@ no invented AI-origin percentages. External providers have clearly stated limits
 """
 from __future__ import annotations
 
+import base64
 from datetime import datetime, timezone
 from hashlib import sha256
 from html import escape
@@ -27,6 +28,9 @@ from institution_accounts import suggested_institution_accounts
 
 
 APP_DIR = Path(__file__).resolve().parent
+ORIGINAL_LOGO_BASE64 = base64.b64encode(
+    (APP_DIR / "assets" / "rumourprint-logo.svg").read_bytes()
+).decode("ascii")
 st.set_page_config(
     page_title="RUMOURPRINT AI | Check the story yourself",
     page_icon="🔎",
@@ -114,7 +118,7 @@ def research_brief(claim: str, origin: str, news: dict | None, social: dict | No
 st.markdown(
     '<div class="rp-hero">'
     '<div class="rp-eyebrow">FRESH EXCLUSIVE MEDIA <span> / </span> COMMUNITY INFORMATION TOOL</div>'
-    '<div class="rp-logo-row"><div class="rp-logo-icon">✦</div>'
+    f'<div class="rp-logo-row"><div class="rp-logo-icon"><img src="data:image/svg+xml;base64,{ORIGINAL_LOGO_BASE64}" alt="Original RUMOURPRINT AI logo"></div>'
     '<div class="rp-brand">RUMOURPRINT<span> AI</span><small>Investigate the claim. You decide.</small></div></div>'
     '<h1>Seen something suspicious?<br><em>Check the story.</em></h1>'
     '<p>Copy a message or type something you heard. We will help you find reports, '

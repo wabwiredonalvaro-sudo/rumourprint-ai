@@ -26,3 +26,17 @@ def test_user_can_enter_message_and_choose_source_without_jargon():
     assert app.text_area(key="public_claim").value == claim
     assert app.radio(key="origin").value == "Spoken rumour"
     assert app.tabs[0].label == "📰 News"
+
+
+def test_original_rumourprint_svg_logo_is_restored_in_header():
+    """Keep the original October 2026 RUMOURPRINT artwork, not a replacement icon."""
+    from pathlib import Path
+    source = Path(__file__).resolve().parents[1]
+    logo = (source / "assets" / "rumourprint-logo.svg").read_text(encoding="utf-8")
+    app = (source / "app.py").read_text(encoding="utf-8")
+    assert 'viewBox="0 0 64 64"' in logo
+    assert '#D9C28B' in logo and '#7FC0AE' in logo
+    assert 'M32 32L45 45' in logo
+    assert 'ORIGINAL_LOGO_BASE64' in app
+    assert 'alt="Original RUMOURPRINT AI logo"' in app
+    assert '<div class="rp-logo-icon">✦' not in app
