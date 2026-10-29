@@ -92,7 +92,7 @@ def research_brief(claim: str, origin: str, news: dict | None, social: dict | No
         "",
         "## News and websites",
     ]
-    for item in (news or {}).get("articles", [])[:45]:
+    for item in (news or {}).get("articles", [])[:80]:
         lines += ["- " + easy_title(item.get("title")) + " — " + str(item.get("url", ""))]
     for item in (news or {}).get("reviews", [])[:8]:
         lines += ["- Published fact-check: " + easy_title(item.get("title")) +
@@ -228,7 +228,7 @@ with news_tab:
             result_card(item, i)
         if len(items) > 12:
             with st.expander(f"See {len(items) - 12} more links"):
-                for i, item in enumerate(items[12:45], 13):
+                for i, item in enumerate(items[12:90], 13):
                     result_card(item, i)
         reviews = news.get("reviews", [])
         if reviews:
