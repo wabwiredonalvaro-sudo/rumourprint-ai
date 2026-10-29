@@ -98,12 +98,14 @@ def broaden_query(query: str) -> str:
     return " ".join(short) if short else " ".join(words[:3])
 
 
-def search_news(query: str, *, limit: int = 8, transport=_get) -> list[dict]:
+def search_news(query: str, *, limit: int = 8, region: str = "UG", transport=_get) -> list[dict]:
     """Search indexed news *headlines*, not full-text evidence or endorsements."""
     query = clean_text(query, 200)
     if len(query) < 3:
         raise EvidenceError("Enter at least three characters to search live news.")
-    raw = transport(NEWS_URL, {"q": query, "hl": "en-UG", "gl": "UG", "ceid": "UG:en"})
+    params = ({"q": query, "hl": "en-US", "gl": "US", "ceid": "US:en"} if region == "WORLD"
+              else {"q": query, "hl": "en-UG", "gl": "UG", "ceid": "UG:en"})
+    raw = transport(NEWS_URL, params)
     try:
         tree = ET.fromstring(raw)
     except ET.ParseError as exc:
