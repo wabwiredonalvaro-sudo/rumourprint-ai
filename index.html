@@ -63,6 +63,7 @@
     @media(max-width:480px){.nav{min-height:76px}.brand-name{font-size:13px}.brand-note{font-size:8px}.mark{width:39px;height:39px;flex-basis:39px}.navlink{font-size:11px;padding:7px 9px}.actions{display:grid}.button{width:100%}.main{padding-top:52px}.footer-row{display:block}.footer-row p{margin-bottom:11px}}
     @media(prefers-reduced-motion:reduce){*,*:before,*:after{scroll-behavior:auto!important;transition:none!important}}
   </style>
+  <link rel="manifest" href="/manifest.webmanifest">
 </head>
 <body>
 <a class="skip" href="#content">Skip to content</a>
@@ -81,7 +82,7 @@
       </svg>
       <span><span class="brand-name">FRESH EXCLUSIVE MEDIA</span><span class="brand-note">NEWSROOM INNOVATION</span></span>
     </a>
-    <a class="navlink" href="https://freshexclusivemedia.com/">← Main website</a>
+    <a class="navlink" href="/offline.html">📚 Offline library</a>
   </div>
 </header>
 
@@ -94,27 +95,28 @@
       <div class="actions">
         <a class="button primary" href="https://rumourprint-fem.streamlit.app/?embed=true" rel="noopener noreferrer" target="_blank">Launch web application <span aria-hidden="true">↗</span></a>
         <a class="button secondary" href="https://github.com/wabwiredonalvaro-sudo/rumourprint-ai/releases/download/android-v0.1.0-beta.1/RUMOURPRINT-AI-Android-Beta.apk">Download Android beta <span aria-hidden="true">↓</span></a>
+        <a class="button secondary" href="/offline.html">📚 Read offline library</a>
       </div>
-      <p class="disclaimer">Free public research prototype · Android 8.0+ · Requires internet · No account needed. Never enter confidential newsroom information.</p>
+      <p class="disclaimer">Free public research prototype · Live investigation needs internet · Offline reading library works after first download · No account needed. Do not submit private information.</p>
     </div>
   </section>
 
   <div class="shell main">
     <div class="section-head">
-      <h2>Built for the investigative workflow</h2>
-      <p>RUMOURPRINT AI surfaces similarities and possible changes in wording. It does not independently establish the truth of a claim.</p>
+      <h2>For everyday people: find it, read it, decide.</h2>
+      <p>Paste a claim, choose where you heard it, and tap Investigate. Open the original news or social post links and make your own decision.</p>
     </div>
     <div class="cards" aria-label="RUMOURPRINT capabilities">
-      <article class="card"><span class="number">01 / INVESTIGATE</span><h3>Compare related claims</h3><p>Identify messages discussing the same topic despite changed wording, then examine where meaning or certainty may have shifted.</p></article>
-      <article class="card"><span class="number">02 / VISUALISE</span><h3>Map narrative connections</h3><p>View similarity links and connected message groups in an interactive relationship map for further journalistic review.</p></article>
-      <article class="card"><span class="number">03 / VERIFY</span><h3>Compare article evidence</h3><p>Extract text from supported publisher articles, inspect cited passages, and record a preliminary assessment for human review.</p></article>
-      <article class="card"><span class="number">04 / IMAGES</span><h3>Review image provenance</h3><p>Inspect file metadata and signed Content Credentials for declared AI creation or editing. No trustworthy percentage of AI-generated pixels can be inferred.</p></article>
-      <article class="card"><span class="number">05 / SOCIAL SOURCES</span><h3>Trace statements to original X posts</h3><p>Check named public accounts, compare alleged quotes and inspect original post links. Automated lookups require configured X API access; account identity always requires independent verification.</p></article>
+      <article class="card"><span class="number">01 / NEWS</span><h3>Find related news stories</h3><p>Paste a claim; the app chooses search words and returns source links. Read and decide for yourself.</p></article>
+      <article class="card"><span class="number">02 / SOCIAL</span><h3>Look for original posts</h3><p>Check public social accounts and original post links. Automatic X and indexed searches need provider access.</p></article>
+      <article class="card"><span class="number">03 / IMAGES</span><h3>Investigate a picture</h3><p>Read writing on images, examine available photo information and find matching pages where enabled.</p></article>
+      <article class="card"><span class="number">04 / OFFLINE</span><h3>Read without mobile data</h3><p>Download 20 original fact-checking guides the first time you visit; save your own permitted texts on your device.</p></article>
+      <article class="card"><span class="number">05 / COMMUNITY</span><h3>Share what you found</h3><p>Save your own review; moderated notes become visible to later readers when secure community storage is enabled.</p></article>
     </div>
 
     <aside class="trust" aria-label="Responsible use and Android download details">
       <div>
-        <h2>A tool for journalists, not a truth machine.</h2>
+        <h2>Made for everyone, not a truth machine.</h2>
         <p>Similarity alone cannot determine accuracy, source attribution or how a message spread. Verify claims against original documents, dates and trusted reporting before publishing conclusions.</p>
       </div>
       <div>
@@ -130,5 +132,6 @@
     <nav aria-label="Footer links"><a href="/privacy.html">Privacy & responsible use</a><span aria-hidden="true" style="padding:0 12px;color:#769587">·</span><a href="https://freshexclusivemedia.com/">Fresh Exclusive Media ↗</a></nav>
   </div>
 </footer>
+<script>if("serviceWorker" in navigator){navigator.serviceWorker.register("/sw.js").catch(()=>{});}</script>
 </body>
 </html>
