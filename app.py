@@ -1,1047 +1,453 @@
-"""RUMOURPRINT AI v0.9 — evidence-first research, editorial source comparison and image provenance."""
+"""RUMOURPRINT AI v1 — one-tap, mobile-first, evidence-led public research.
+
+The user decides. No automatic true/false verdict, no unverified face identity,
+no invented AI-origin percentages. External providers have clearly stated limits.
+"""
 from __future__ import annotations
 
-import csv
-import html
-import io
 from datetime import datetime, timezone
 from hashlib import sha256
+from html import escape
 from pathlib import Path
+from urllib.parse import urlencode
 
 import streamlit as st
 
-from engine import compare, pairwise_scores, shift_signals
-from semantic import MODEL_NAME, load_local_model
-from evidence import search_news, search_fact_checks, suggest_query, broaden_query, build_brief, EvidenceError
-from source_verification import fetch_article, compare_article_evidence, evidence_report, ArticleAccessError
-from image_provenance import analyse_image, image_report, ImageReviewError
-from social_verification import (
-    SocialLookupError, clean_handle, parse_x_post_url, make_x_search_url,
-    make_other_platform_search_url,
-    search_account_posts, verify_post_link, social_evidence_brief,
+from public_research import (
+    automatic_terms, investigate_text, social_discovery, PublicSearchError,
+    PROVENANCE_OPTIONS,
 )
-from network import build_network, figure_for_network, highlight_differences
+from social_search import public_x_posts
+from picture_research import (
+    human_picture_story, read_words_in_picture, reverse_picture_search, PictureResearchError,
+)
+from image_provenance import analyse_image, ImageReviewError
+
 
 APP_DIR = Path(__file__).resolve().parent
-MAX_CLAIMS = 250
-MAX_TEXT = 2500
-
 st.set_page_config(
-    page_title="RUMOURPRINT AI | Narrative verification workspace",
+    page_title="RUMOURPRINT AI | Check the story yourself",
     page_icon="🔎",
-    layout="wide",
-    initial_sidebar_state="expanded",
+    layout="centered",
+    initial_sidebar_state="collapsed",
 )
 st.markdown(
-    f"<style>{(APP_DIR / 'assets' / 'styles.css').read_text(encoding='utf-8')}</style>",
+    f"<style>{(APP_DIR / 'assets' / 'mobile.css').read_text(encoding='utf-8')}</style>",
     unsafe_allow_html=True,
 )
 
-SAMPLES = []
 
-if "reports" not in st.session_state:
-    st.session_state.reports = [dict(row) for row in SAMPLES]
-if "last_matches" not in st.session_state:
-    st.session_state.last_matches = None
-if "last_engine" not in st.session_state:
-    st.session_state.last_engine = ""
-if "last_query" not in st.session_state:
-    st.session_state.last_query = ""
-if "clusters" not in st.session_state:
-    st.session_state.clusters = None
-if "cluster_method" not in st.session_state:
-    st.session_state.cluster_method = ""
+def secret(name: str) -> str:
+    """Only admin-set secrets; never request provider API credentials from visitors."""
+    try:
+        return str(st.secrets.get(name, "") or "").strip()
+    except (FileNotFoundError, KeyError):
+        return ""
 
 
-def escape(text: object) -> str:
-    return html.escape(str(text), quote=True)
-
-
-def section_heading(index: str, eyebrow: str, title: str, description: str = "") -> None:
-    """Render structural HTML directly, avoiding Markdown showing closing tags."""
-    description_html = (
-        f'<p class="rp-section-description">{escape(description)}</p>'
-        if description else ""
-    )
-    section_html = (
-        '<div class="rp-section-heading">'
-        '<div class="rp-section-heading-copy">'
-        f'<p class="rp-eyebrow"><span class="rp-section-index">{escape(index)}</span>'
-        f'{escape(eyebrow)}</p>'
-        f'<h2>{escape(title)}</h2>'
-        f'{description_html}'
-        '</div></div>'
-    )
-    st.html(section_html)
+def get_ocr_engine():
+    from rapidocr import RapidOCR
+    return RapidOCR()
 
 
 @st.cache_resource(show_spinner=False)
-def get_semantic_model():
-    return load_local_model(APP_DIR)
+def ocr_engine_cached():
+    return get_ocr_engine()
 
 
-def selected_model():
-    if st.session_state.engine_choice != "Multilingual semantic AI":
-        return None, "wording", None
-    try:
-        with st.spinner("Loading the multilingual AI model. On first use this downloads approximately 220 MB; please wait…"):
-            model = get_semantic_model()
-        return model, "semantic", None
-    except Exception as exc:
-        # A failing download never prevents access to the investigation desk.
-        return None, "wording", str(exc)
+def easy_title(text: str) -> str:
+    return " ".join(str(text or "").split())[:180]
 
 
-def clear_derived() -> None:
-    st.session_state.clusters = None
-    st.session_state.cluster_method = ""
-    st.session_state.map_matrix = None
-    st.session_state.map_method = ""
-    st.session_state.map_items = []
-
-
-def add_row(text: str, source: str, time: str | None = None) -> None:
-    st.session_state.reports.append({
-        "text": text,
-        "source": source,
-        "time": time or datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
-    })
-    clear_derived()
-
-
-def csv_safe(value: object) -> str:
-    """Prevent Excel formula execution on later CSV open."""
-    text = str(value)
-    if text.lstrip().startswith(("=", "+", "-", "@")):
-        return "'" + text
-    return text
-
-
-def export_csv() -> str:
-    buffer = io.StringIO()
-    writer = csv.DictWriter(buffer, fieldnames=["text", "source", "time"])
-    writer.writeheader()
-    for row in st.session_state.reports:
-        writer.writerow({key: csv_safe(row.get(key, "")) for key in ("text", "source", "time")})
-    return buffer.getvalue()
-
-
-
-# Keep both the sidebar and mobile navigation synchronised.
-WORKSPACE_PAGES = [
-    "Evidence desk",
-    "Investigation desk",
-    "Relationship map",
-    "Claim library",
-    "About & ethics",
-]
-
-if "workspace_page" not in st.session_state:
-    st.session_state.workspace_page = WORKSPACE_PAGES[0]
-if "mobile_workspace_page" not in st.session_state:
-    st.session_state.mobile_workspace_page = st.session_state.workspace_page
-
-
-def sync_sidebar_navigation() -> None:
-    st.session_state.mobile_workspace_page = st.session_state.workspace_page
-
-
-def sync_mobile_navigation() -> None:
-    st.session_state.workspace_page = st.session_state.mobile_workspace_page
-
-
-def update_evidence_search_terms() -> None:
-    """Automatically rebuild editable search words whenever the claim changes."""
-    claim = st.session_state.get("verification_claim", "").strip()
-    st.session_state["verification_query"] = suggest_query(claim) if claim else ""
-
-
-def initialise_evidence_search_terms() -> None:
-    """Populate the first visit without resetting a user's manual edits."""
-    if "verification_claim" not in st.session_state:
-        st.session_state["verification_claim"] = st.session_state.get("last_query", "")
-    if "verification_query" not in st.session_state:
-        update_evidence_search_terms()
-
-
-with st.sidebar:
-    brand_icon_col, brand_text_col = st.columns([1, 3], gap="small", vertical_alignment="center")
-    with brand_icon_col:
-        st.image("<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 64 64\" width=\"64\" height=\"64\" fill=\"none\"><rect x=\"4\" y=\"4\" width=\"56\" height=\"56\" rx=\"16\" fill=\"#1A2A29\" stroke=\"#33524E\" stroke-width=\"2\"/><path d=\"M19 32C19 24.82 24.82 19 32 19C39.18 19 45 24.82 45 32\" stroke=\"#D9C28B\" stroke-width=\"2.8\" stroke-linecap=\"round\"/><path d=\"M23 32C23 27.03 27.03 23 32 23C36.97 23 41 27.03 41 32\" stroke=\"#7FC0AE\" stroke-width=\"2.6\" stroke-linecap=\"round\"/><path d=\"M27 32C27 29.24 29.24 27 32 27C34.76 27 37 29.24 37 32\" stroke=\"#EFF6F4\" stroke-width=\"2.4\" stroke-linecap=\"round\"/><path d=\"M32 32L45 45\" stroke=\"#7FC0AE\" stroke-width=\"2.6\" stroke-linecap=\"round\"/><circle cx=\"46.5\" cy=\"46.5\" r=\"4.5\" fill=\"#D9C28B\" stroke=\"#1A2A29\" stroke-width=\"1.4\"/></svg>", width=58)
-    with brand_text_col:
-        st.html('''
-            <div class="rp-brand-copy">
-              <span class="rp-brand-name">RUMOURPRINT AI</span>
-              <small>NARRATIVE VERIFICATION WORKSPACE</small>
-              <div class="rp-powered-by">Powered by <strong>Fresh Exclusive Media</strong></div>
-            </div>
-        ''')
-    st.html('<div class="rp-side-heading">WORKSPACE</div>')
-    page = st.radio(
-        "Workspace", WORKSPACE_PAGES,
-        label_visibility="collapsed",
-        key="workspace_page",
-        on_change=sync_sidebar_navigation,
-    )
-    st.markdown('<div class="rp-side-separator"></div><div class="rp-side-heading">ANALYSIS ENGINE</div>', unsafe_allow_html=True)
-    st.selectbox(
-        "Similarity method", ["Multilingual semantic AI", "Quick text matching"],
-        key="engine_choice", help="Multilingual semantic AI uses a model on this app’s server. Quick mode works without downloading a model.",
-    )
-    if st.session_state.engine_choice == "Multilingual semantic AI":
-        st.caption("The first analysis loads a multilingual model on the server. Luganda results are experimental; please review matches.")
-    else:
-        st.caption("Quick mode is lighter and faster, but it may miss paraphrases, negations and translations.")
-    st.markdown('''
-        <div class="rp-side-status">
-          <div class="rp-side-status-title"><span class="rp-status-light"></span> Professional review required</div>
-          <p>Similarity detection is not verification. Use the Evidence desk to gather source material and document editorial findings before publication.</p>
-        </div>
-        <div class="rp-sidebar-footer">VERSION 0.9 <span>·</span> EVIDENCE-FIRST EDITION</div>
-    ''', unsafe_allow_html=True)
-
-
-# This navigation is only displayed on small screens via assets/styles.css.
-# A visible dropdown avoids relying on a hidden/collapsed sidebar toggle.
-with st.container(key="mobile_navigation"):
-    st.markdown("**RUMOURPRINT AI · Menu**")
-    st.selectbox(
-        "Choose a section",
-        WORKSPACE_PAGES,
-        key="mobile_workspace_page",
-        label_visibility="collapsed",
-        on_change=sync_mobile_navigation,
-    )
-
-
-if page == "Investigation desk":
-    st.markdown('''
-        <div class="rp-page-header">
-          <div class="rp-page-kicker">WORKSPACE <span>/</span> INVESTIGATION DESK</div>
-          <div class="rp-page-title-row">
-            <h1>Investigate changing narratives<span class="rp-title-dot">.</span></h1>
-            <span class="rp-mode-pill"><span class="rp-mode-dot"></span> VERIFICATION WORKSPACE</span>
-          </div>
-          <p>Compare claims by meaning, examine wording shifts and identify stories that may need investigation.</p>
-        </div>
-    ''', unsafe_allow_html=True)
+def result_card(item: dict, index: int, *, kind: str = "article") -> None:
+    title = easy_title(item.get("title") or "Related public source")
+    publisher = easy_title(item.get("publisher") or "Publication not specified")
+    date = easy_title(item.get("date") or "Date not supplied")
+    url = item.get("url", "")
     st.markdown(
-        f'''<div class="rp-stats">
-         <div class="rp-stat"><div class="rp-stat-label">SUBMITTED MESSAGES</div><div class="rp-stat-value">{len(st.session_state.reports):02d}</div><div class="rp-stat-detail">Current user session</div></div>
-         <div class="rp-stat"><div class="rp-stat-label">ANALYSIS METHOD</div><div class="rp-stat-value rp-stat-method">{'Semantic AI' if st.session_state.engine_choice == 'Multilingual semantic AI' else 'Text matching'}</div><div class="rp-stat-detail">Server-side comparison</div></div>
-         <div class="rp-stat"><div class="rp-stat-label">EVIDENCE CONNECTION</div><div class="rp-stat-value rp-stat-pending">Available</div><div class="rp-stat-detail">Manual evidence review</div></div>
-        </div>''', unsafe_allow_html=True,
+        '<div class="rp-result-card"><div class="rp-result-num">SOURCE '
+        + str(index) + '</div><div class="rp-result-title">' + escape(title)
+        + '</div><div class="rp-result-meta">' + escape(publisher) + ' · ' + escape(date)
+        + '</div></div>',
+        unsafe_allow_html=True,
     )
-
-    main_col, right_col = st.columns([3.2, 1.35], gap="large")
-    with main_col:
-        section_heading("01", "NEW INVESTIGATION", "Submit a claim", "Paste a public claim or transcript. The tool compares it with messages saved in your current session. Do not enter confidential newsroom sources or personal information.")
-        with st.form("submit_claim", clear_on_submit=False):
-            claim = st.text_area(
-                "MESSAGE OR TRANSCRIPT", height=154,
-                placeholder="Paste a forwarded message, social post or short video transcript…",
-                key="investigation_claim", max_chars=MAX_TEXT,
-            )
-            source = st.selectbox(
-                "SOURCE PLATFORM", ["WhatsApp", "Facebook", "TikTok", "X", "Other"],
-                key="investigation_platform",
-            )
-            submitted = st.form_submit_button("Analyse and save message  →", type="primary", use_container_width=True)
-
-        if submitted:
-            text = claim.strip()
-            if len(text) < 15:
-                st.warning("Please enter at least 15 characters to run a comparison.")
-            elif len(st.session_state.reports) >= MAX_CLAIMS:
-                st.error("The working library is full. Export your data before clearing or archiving it.")
-            else:
-                model, mode, error = selected_model()
-                if error:
-                    st.warning("Semantic model unavailable. The message was compared using quick wording matching instead. Check the application logs if the model download fails.")
-                try:
-                    with st.spinner("Comparing the message against submitted claims…"):
-                        results = compare(text, st.session_state.reports, model=model)
-                except Exception as exc:
-                    st.error(f"Analysis could not be completed. Try Quick text matching. Details: {exc}")
-                else:
-                    st.session_state.last_matches = results
-                    st.session_state.last_engine = mode
-                    st.session_state.last_query = text
-                    add_row(text, source)
-                    st.success(f"Message saved. {len(results)} possible narrative connection(s) found using {('semantic AI' if mode == 'semantic' else 'wording comparison')}.")
-
-        section_heading("02", "COMPARISON RESULTS", "Possible related messages")
-        matches = st.session_state.last_matches
-        if matches is None:
-            st.markdown('''<div class="rp-empty-state"><div class="rp-empty-mark">≡</div>
-                <h3>Analysis results appear here</h3>
-                <p>Submit a message to see which existing claims may describe a related story and how the wording differs.</p></div>''', unsafe_allow_html=True)
-        elif not matches:
-            st.info("No messages passed the review threshold. This does not establish that your claim is original, accurate or false.")
-        else:
-            st.caption(
-                f"{len(matches)} possible connection(s) · "
-                f"{'Semantic matching' if st.session_state.last_engine == 'semantic' else 'Wording comparison'} · "
-                "Similarity is not an accuracy or truth score."
-            )
-            for index, match in enumerate(matches[:10], 1):
-                summary = f"{index:02d}   {match['label']} · {match['score']:.0f}/100 similarity index · {match['item']['source']}"
-                with st.expander(summary, expanded=index == 1):
-                    st.markdown("**Submitted message from library**")
-                    st.write(match["item"]["text"])
-                    st.markdown("**Changes to review**")
-                    for signal in match["signals"]:
-                        st.markdown(f"- {signal}")
-                    col_a, col_b = st.columns(2)
-                    with col_a:
-                        st.markdown("**Only in new message**")
-                        st.write(", ".join(match["added"][:25]) or "No distinct keywords")
-                    with col_b:
-                        st.markdown("**Only in library version**")
-                        st.write(", ".join(match["removed"][:25]) or "No distinct keywords")
-                    st.caption("Human review required. This is not a fact-check, dissemination route or proof of the first source.")
-    with right_col:
-        st.markdown('''
-            <div class="rp-aside-card">
-              <p class="rp-aside-kicker">INVESTIGATION PROTOCOL</p>
-              <h3>From claim to comparison</h3>
-              <div class="rp-workflow-item"><span>01</span><div><strong>Capture</strong><p>Preserve the original submitted wording.</p></div></div>
-              <div class="rp-workflow-item"><span>02</span><div><strong>Connect</strong><p>Compare meaning against earlier submitted messages.</p></div></div>
-              <div class="rp-workflow-item"><span>03</span><div><strong>Examine</strong><p>Flag scope, certainty, denials and changed figures.</p></div></div>
-              <div class="rp-aside-divider"></div>
-              <div class="rp-aside-caption">EVIDENCE READY</div>
-              <p class="rp-aside-footnote">Live evidence retrieval and source-linked verification reports.</p>
-            </div>
-            <div class="rp-note-card"><div class="rp-note-heading">EDITORIAL STANDARD</div>
-              <p>Related wording does not prove that either claim is false. Investigate evidence before reporting a verdict.</p>
-            </div>''', unsafe_allow_html=True)
-
-elif page == "Evidence desk":
-    st.markdown("""
-        <div class="rp-page-header">
-          <div class="rp-page-kicker">WORKSPACE <span>/</span> EVIDENCE DESK</div>
-          <h1>Verify claims. Trace original sources<span class="rp-title-dot">.</span></h1>
-          <p>Research original reporting, investigate attributed statements on public social accounts, and inspect image provenance. Results always require editorial review.</p>
-        </div>""", unsafe_allow_html=True)
-
-    article_tab, social_tab, image_tab = st.tabs(["Article evidence", "Official social accounts", "Image provenance"])
-    with article_tab:
-        initialise_evidence_search_terms()
-        claim_input = st.text_area(
-            "CLAIM UNDER INVESTIGATION",
-            height=110,
-            max_chars=2500,
-            key="verification_claim",
-            on_change=update_evidence_search_terms,
-            placeholder="Paste a public claim here. The search terms will be generated automatically.",
-        )
-        query = st.text_input(
-            "SEARCH TERMS · AUTOMATICALLY GENERATED (EDITABLE)",
-            key="verification_query",
-            placeholder="Generated from the claim above",
-            help="The application generates keywords when you finish entering a claim. You can edit them; changing the claim refreshes the suggestion.",
-        )
-        st.caption("Search terms fill automatically when you finish entering the claim. You can still edit them to narrow or broaden the evidence search.")
-        st.info("Only submit public claims. Remove personal details and confidential sources from search terms, which leave the platform.")
-        api_key = st.text_input(
-            "Google Fact Check Tools API key (optional)", type="password",
-            help="Leave empty to search news only. Keys must remain private.",
-        )
-        search_news_enabled = st.checkbox("Search current news headlines", value=True)
-        search_checks_enabled = st.checkbox("Search published fact-checks", value=False, disabled=not bool(api_key))
-        if st.button("Search evidence sources", type="primary"):
-            if not claim_input.strip() or len(query.strip()) < 3:
-                st.warning("Enter a claim and at least three characters of search terms.")
-            elif not search_news_enabled and not search_checks_enabled:
-                st.warning("Select at least one evidence source.")
-            else:
-                st.session_state.evidence_news = []
-                st.session_state.evidence_checks = []
-                st.session_state.evidence_claim = claim_input.strip()
-                st.session_state.evidence_query = query.strip()
-                st.session_state.evidence_news_status = "not_requested"
-                st.session_state.evidence_checks_status = "not_requested"
-                st.session_state.evidence_news_query_used = query.strip()
-                if search_news_enabled:
-                    try:
-                        with st.spinner("Searching published headlines..."):
-                            hits = search_news(query)
-                            if not hits:
-                                broader = broaden_query(query)
-                                if broader and broader.casefold() != query.strip().casefold():
-                                    st.session_state.evidence_news_query_used = broader
-                                    hits = search_news(broader)
-                            st.session_state.evidence_news = hits
-                            st.session_state.evidence_news_status = "found" if hits else "empty"
-                    except EvidenceError as exc:
-                        st.session_state.evidence_news_status = "error"
-                        st.warning(f"News search: {exc}")
-                if search_checks_enabled:
-                    try:
-                        with st.spinner("Searching published fact checks..."):
-                            st.session_state.evidence_checks = search_fact_checks(query, api_key)
-                            st.session_state.evidence_checks_status = "found" if st.session_state.evidence_checks else "empty"
-                    except EvidenceError as exc:
-                        st.session_state.evidence_checks_status = "error"
-                        st.warning(f"Fact-check search: {exc}")
-
-        news = st.session_state.get("evidence_news", [])
-        checks = st.session_state.get("evidence_checks", [])
-        with st.expander("Published fact-check reviews", expanded=False):
-            if not checks:
-                st.caption("No reviews retrieved or this search is not enabled. Absence of reviews does not establish truth.")
-            for idx, item in enumerate(checks):
-                st.markdown(f"**{escape(item['title'])}** — {escape(item['publisher'])}")
-                st.caption(f"Published: {item['date'] or 'Unknown'} · Publisher rating: {item['rating'] or 'Not supplied'}")
-                st.link_button("Open original fact-check review", item["url"])
-                if st.button("Extract review article", key=f"extract_review_{idx}"):
-                    try:
-                        with st.spinner("Reading publisher article..."):
-                            article = fetch_article(item["url"])
-                        current = st.session_state.get("article_sources", [])
-                        if not any(x["url"] == article["url"] for x in current):
-                            st.session_state.article_sources = (current + [article])[-4:]
-                        st.success("Article text extracted. Review its quoted passage below.")
-                    except ArticleAccessError as exc:
-                        st.warning(str(exc))
-        with st.expander("Current news headlines", expanded=False):
-            used_query = st.session_state.get("evidence_news_query_used", "")
-            if used_query and used_query != st.session_state.get("evidence_query", ""):
-                st.info(f"The original search returned no results; retried with: {used_query}")
-            if not news:
-                st.caption("No matching headlines retrieved or lookup was unavailable. This is not evidence for or against the claim.")
-            for idx, item in enumerate(news):
-                st.markdown(f"**{escape(item['title'])}** — {escape(item['publisher'])}")
-                st.caption(f"Published: {item['date'] or 'Unknown'}")
-                st.link_button("Open original news link", item["url"])
-                if st.button("Extract this article", key=f"extract_news_{idx}"):
-                    try:
-                        with st.spinner("Reading publisher article..."):
-                            article = fetch_article(item["url"])
-                        current = st.session_state.get("article_sources", [])
-                        if not any(x["url"] == article["url"] for x in current):
-                            st.session_state.article_sources = (current + [article])[-4:]
-                        st.success("Article text extracted.")
-                    except ArticleAccessError as exc:
-                        st.warning(str(exc))
-                        st.caption("Google News redirect links are sometimes inaccessible. Open the headline, copy the direct publisher article URL, then paste it below.")
-
-        st.divider()
-        section_heading("01", "SOURCE EXTRACTION", "Compare the actual article text",
-                        "Paste a direct publisher URL. Supported publishers and official institutions are fetched using bounded HTTPS requests; some sites block extraction.")
-        article_url = st.text_input(
-            "DIRECT ORIGINAL ARTICLE URL (HTTPS)",
-            placeholder="https://news.mak.ac.ug/2026/...",
-            key="direct_article_url",
-        )
-        if st.button("Extract article and compare", type="primary"):
-            if not claim_input.strip():
-                st.warning("Enter the claim under investigation first.")
-            elif not article_url.strip():
-                st.warning("Paste a direct source article URL.")
-            else:
-                try:
-                    with st.spinner("Reading publisher text safely..."):
-                        article = fetch_article(article_url)
-                    current = st.session_state.get("article_sources", [])
-                    if not any(x["url"] == article["url"] for x in current):
-                        st.session_state.article_sources = (current + [article])[-4:]
-                    st.session_state.source_claim = claim_input.strip()
-                    st.success("Publisher article extracted. Inspect the preliminary assessment.")
-                except ArticleAccessError as exc:
-                    st.warning(str(exc))
-
-        articles = st.session_state.get("article_sources", [])
-        if articles:
-            st.caption(f"{len(articles)} article source(s) loaded in this session. Newest four are retained.")
-            if st.button("Clear extracted sources"):
-                st.session_state.article_sources = []
-                st.session_state.source_claim = ""
-                st.rerun()
-            for idx, item in enumerate(articles, 1):
-                st.markdown(f"**Source {idx}: {item['domain']}**")
-                st.link_button(f"Open source {idx}", item["url"])
-            if claim_input.strip():
-                result = compare_article_evidence(claim_input, articles)
-                st.subheader("Preliminary evidence assessment")
-                label = result["status"]
-                if label == "Supported":
-                    st.info("SUPPORTED — preliminary matching passage only. Independent editorial confirmation is mandatory.")
-                elif label == "Contradicted":
-                    st.warning("CONTRADICTED — a possible conflicting passage was found. Check the original source and context.")
-                else:
-                    st.info("INSUFFICIENT EVIDENCE — available passages do not establish a conclusion.")
-                st.caption(result["reason"])
-                st.markdown("**Cited passages from publisher articles**")
-                if not result["citations"]:
-                    st.caption("No relevant extractable passages found. The claim remains unverified.")
-                for i, citation in enumerate(result["citations"], 1):
-                    st.markdown(f"**[{i}] {escape(citation['domain'])}** · {citation['signal']}")
-                    st.write("“" + citation["excerpt"] + "”")
-                    st.link_button(f"Read original article [{i}]", citation["url"])
-                    st.caption("Quoted passage from extracted article; source context and date must be checked. Text overlap is not a truth probability.")
-                st.markdown("**Mandatory editorial decision**")
-                decision = st.selectbox(
-                    "Reviewer status",
-                    [
-                        "Pending — no human verdict",
-                        "Reviewer confirmed the evidence after inspecting originals",
-                        "Reviewer rejected or needs to correct the automated assessment",
-                    ],
-                    key="editorial_decision",
-                )
-                notes = st.text_area(
-                    "JOURNALIST'S REVIEW NOTES",
-                    placeholder="Which original records, dates, sources and quotations confirm or challenge this statement?",
-                    key="article_review_notes",
-                )
-                if decision != "Pending — no human verdict" and len(notes.strip()) < 20:
-                    st.warning("Document your verification method and supporting records in the review notes before treating this case as reviewed.")
-                reviewed = decision if len(notes.strip()) >= 20 else "Pending — no human verdict"
-                brief = evidence_report(claim_input, articles, result, notes, decision=reviewed)
-                st.download_button(
-                    "Download citation-backed evidence report (.md)",
-                    brief,
-                    file_name="rumourprint_source_review.md",
-                    mime="text/markdown",
-                )
-            else:
-                st.info("Enter a claim to compare against your extracted articles.")
-        else:
-            st.caption("No article bodies extracted yet. Search links and headlines alone cannot support an automated conclusion.")
-
-        st.divider()
-        st.subheader("Original evidence research brief")
-        base_notes = st.text_area(
-            "Additional research notes", key="original_research_notes",
-            placeholder="Sources opened manually, questions for experts and gaps in evidence",
-        )
-        if st.session_state.get("evidence_claim"):
-            brief = build_brief(
-                st.session_state.evidence_claim,
-                st.session_state.get("evidence_query", ""),
-                news, checks, base_notes,
-            )
-            st.download_button(
-                "Download headline research brief (.md)", brief,
-                file_name="rumourprint_research_brief.md", mime="text/markdown",
-            )
-        st.caption("A publisher review rating cannot be copied to a different claim. Always check exact dates, attribution, context and original records.")
-
-    with social_tab:
-        st.subheader("Did this person publish the statement on X?")
-        st.caption(
-            "Check public X posts attributed to a specific @handle. An original account post can confirm "
-            "that the account published wording, but it does not automatically confirm that the named person owns "
-            "the account or that the statement is true."
-        )
-        if st.button("Use the claim from Article Evidence", key="x_copy_claim"):
-            st.session_state["x_claim"] = claim_input
-            st.session_state.pop("x_search_result", None)
-            st.session_state.pop("x_direct_result", None)
-            st.rerun()
-        social_claim = st.text_area(
-            "ALLEGED QUOTE OR CLAIM",
-            value=claim_input,
-            height=95,
-            max_chars=1500,
-            key="x_claim",
-            placeholder="Enter the statement allegedly made by this person.",
-        )
-        social_handle_raw = st.text_input(
-            "X ACCOUNT TO CHECK (@HANDLE)",
-            placeholder="@example",
-            key="x_handle",
-            help="Use the account's actual @handle, not the person's display name. Check its official ownership independently.",
-        )
-        person_name = st.text_input(
-            "PERSON OR ORGANISATION CLAIMED TO OWN THE ACCOUNT (OPTIONAL)",
-            placeholder="Name for your journalist's notes",
-            max_chars=120,
-            key="x_person",
-        )
-        st.info(
-            "A blue X checkmark normally reflects Premium subscription, not proof of personal identity. "
-            "Verify ownership through an official website, independent institutional profile, or a direct on-record confirmation."
-        )
-
-        try:
-            x_handle = clean_handle(social_handle_raw)
-        except SocialLookupError:
-            x_handle = ""
-        if social_handle_raw.strip() and not x_handle:
-            st.warning("Enter an X handle such as @example (without spaces or a profile URL).")
-
-        if x_handle:
-            cols = st.columns(2)
-            with cols[0]:
-                st.link_button("Open original X profile", f"https://x.com/{x_handle}", use_container_width=True)
-            with cols[1]:
-                st.link_button(
-                    "Search this account on X", make_x_search_url(x_handle, social_claim),
-                    use_container_width=True,
-                )
-            st.caption("Manual X search opens in your browser. Results may require X sign-in and are not exhaustive.")
-
-        with st.expander("Look for a public statement on Facebook, Instagram or LinkedIn"):
-            st.caption(
-                "Optional public web searches. Indexed snippets may omit posts, "
-                "cannot authenticate screenshots or prove who controls a social account, "
-                "and must be checked against the original public profile."
-            )
-            if person_name.strip() and social_claim.strip():
-                extra_cols = st.columns(3)
-                for column, platform in zip(extra_cols, ("Facebook", "Instagram", "LinkedIn")):
-                    with column:
-                        st.link_button(
-                            f"Search {platform}",
-                            make_other_platform_search_url(platform, person_name, social_claim),
-                            use_container_width=True,
-                        )
-            else:
-                st.caption("Enter the person or organisation name and a claim to enable these search links.")
+    if url:
+        st.link_button("Open original " + ("post" if kind == "post" else "article") + " ↗", url,
+                       use_container_width=True)
+    if item.get("description"):
+        st.caption(easy_title(item["description"]))
 
 
-        try:
-            x_token = str(st.secrets.get("X_BEARER_TOKEN", "") or "").strip()
-            x_access_code = str(st.secrets.get("X_SOCIAL_CHECK_ACCESS_CODE", "") or "").strip()
-        except (FileNotFoundError, KeyError):
-            x_token = ""
-            x_access_code = ""
+def research_brief(claim: str, origin: str, news: dict | None, social: dict | None) -> str:
+    lines = [
+        "# RUMOURPRINT AI — Your research links",
+        f"Made: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}",
+        f"Claim as entered: {claim}",
+        f"Where it was heard/seen: {origin}",
+        f"Search words: {automatic_terms(claim)}",
+        "",
+        "These are related links, NOT a true/false decision. Read originals and check dates.",
+        "",
+        "## News and websites",
+    ]
+    for item in (news or {}).get("articles", [])[:45]:
+        lines += ["- " + easy_title(item.get("title")) + " — " + str(item.get("url", ""))]
+    for item in (news or {}).get("reviews", [])[:8]:
+        lines += ["- Published fact-check: " + easy_title(item.get("title")) +
+                  " — " + str(item.get("url", ""))]
+    lines += ["", "## Public social posts and search links"]
+    for item in (social or {}).get("posts", [])[:35]:
+        lines += ["- " + str(item.get("platform")) + ": " + str(item.get("url"))]
+    for platform, url in (social or {}).get("search_links", {}).items():
+        lines += [f"- Search {platform}: {url}"]
+    lines += ["", "## Limits",
+              "Not every publication or public post is indexed; restricted or deleted content may be absent.",
+              "A search result is not a verified account or a fact-check verdict.",
+              "The app does not identify people by faces in photographs.",
+              "Be careful with private or personal information."]
+    return "\n".join(lines)
 
-        x_auth_ready = bool(x_token)
-        if x_access_code:
-            supplied_access_code = st.text_input(
-                "Newsroom access code for X API lookups", type="password",
-                key="x_social_access_code",
-                help="Optional administrator-controlled access to paid API lookups; do not enter your X account password.",
-            )
-            import hmac
-            x_auth_ready = x_auth_ready and hmac.compare_digest(supplied_access_code, x_access_code)
 
-        if not x_token:
-            st.warning(
-                "Automatic X account verification is not enabled yet. "
-                "Fresh Exclusive Media must configure its own X Developer API bearer token in "
-                "the Streamlit app's Secrets. Until then, use the direct X profile/search links above "
-                "and check original posts manually. No automated X lookup has been performed."
-            )
-        elif not x_auth_ready:
-            st.caption("Automatic X search is restricted to authorised newsroom users.")
-        else:
-            st.success("X API access configured: original public post checks are available.")
-            st.caption(
-                "API requests may incur X usage charges. Each click requests a profile and up to 10 posts; "
-                "the app will not scrape private accounts or automatically search in the background."
-            )
+# One short page; no separate technical desks.
+st.markdown(
+    '<div class="rp-hero">'
+    '<div class="rp-eyebrow">FRESH EXCLUSIVE MEDIA <span> / </span> COMMUNITY INFORMATION TOOL</div>'
+    '<div class="rp-logo-row"><div class="rp-logo-icon">✦</div>'
+    '<div class="rp-brand">RUMOURPRINT<span> AI</span><small>Investigate the claim. You decide.</small></div></div>'
+    '<h1>Seen something suspicious?<br><em>Check the story.</em></h1>'
+    '<p>Copy a message or type something you heard. We will help you find reports, '
+    'public posts and original sources so you can decide for yourself.</p>'
+    '</div>',
+    unsafe_allow_html=True,
+)
 
-        st.markdown("**Search an account's public posts**")
-        search_period = st.radio(
-            "Search coverage",
-            ["Recent 7 days", "Full archive (requires eligible X API access)"],
-            key="x_search_window",
-            horizontal=True,
-            help="X recent search is limited to approximately seven days. Older statements require full-archive API access.",
-        )
-        if st.button(
-            "Check X account for this claim",
-            key="x_check_account",
-            type="primary",
-            disabled=not x_auth_ready,
-        ):
-            if not x_handle or len(social_claim.strip()) < 8:
-                st.warning("Enter the X account handle and a specific claim first.")
-            else:
-                try:
-                    with st.spinner("Checking public posts directly through X..."):
-                        result = search_account_posts(
-                            x_handle, social_claim, x_token,
-                            archive=search_period.startswith("Full archive"),
-                        )
-                    st.session_state["x_search_result"] = {
-                        "handle": x_handle.casefold(), "claim": social_claim.strip(), "data": result,
-                    }
-                    st.success("X account search completed. Read the limitations and open the original posts.")
-                except SocialLookupError as exc:
-                    st.session_state.pop("x_search_result", None)
-                    st.warning(str(exc))
+if "public_claim" not in st.session_state:
+    st.session_state.public_claim = ""
+if "origin" not in st.session_state:
+    st.session_state.origin = "WhatsApp"
 
-        st.markdown("**Or verify a particular X post URL**")
-        original_post = st.text_input(
-            "ORIGINAL X POST LINK (OPTIONAL)",
-            placeholder="https://x.com/example/status/1234567890123456789",
-            key="x_direct_link",
-            help="Paste the original X link from the screenshot or forwarded message.",
-        )
-        valid_post = None
-        if original_post.strip():
-            try:
-                valid_post = parse_x_post_url(original_post)
-                st.link_button("Open supplied X post manually", valid_post["url"])
-            except SocialLookupError as exc:
-                st.warning(str(exc))
-        if st.button(
-            "Verify author of supplied post",
-            key="x_check_post",
-            disabled=not x_auth_ready,
-        ):
-            if not x_handle or not valid_post:
-                st.warning("Enter a valid X handle and the original X post URL.")
-            else:
-                try:
-                    with st.spinner("Checking the post's author ID directly with X..."):
-                        result = verify_post_link(x_handle, valid_post["url"], social_claim, x_token)
-                    st.session_state["x_direct_result"] = {
-                        "handle": x_handle.casefold(), "claim": social_claim.strip(),
-                        "post_id": valid_post["post_id"], "data": result,
-                    }
-                except SocialLookupError as exc:
-                    st.session_state.pop("x_direct_result", None)
-                    st.warning(str(exc))
-
-        results = st.session_state.get("x_search_result", {})
-        current = (results.get("handle") == x_handle.casefold() and
-                   results.get("claim") == social_claim.strip())
-        x_result = results.get("data") if current else None
-        direct = st.session_state.get("x_direct_result", {})
-        post_current = (
-            direct.get("handle") == x_handle.casefold() and
-            direct.get("claim") == social_claim.strip() and
-            bool(valid_post) and direct.get("post_id") == valid_post["post_id"]
-        )
-        direct_result = direct.get("data") if post_current else None
-
-        if x_result or direct_result:
-            st.divider()
-            st.subheader("X source findings — editorial review required")
-            active_result = direct_result or x_result
-            account = active_result["account"]
-            st.markdown(f"**Account found on X:** {escape(account['name'])} (@{escape(account['username'])})")
-            st.caption(f"X account ID: {account['id']} · Identity independently verified: NO")
-            st.link_button("Open profile to inspect account identity", account["profile_url"])
-            if person_name.strip():
-                st.caption(f"Alleged person or organisation: {person_name.strip()[:120]} — compare against an independently controlled official profile.")
-            st.warning(
-                "Do not publish 'the person said this' from the X handle alone. "
-                "Check account ownership, original post, date, quoted statements, replies and possible edits."
-            )
-
-        if x_result:
-            st.markdown("**Account-restricted X search**")
-            st.info(x_result["finding"])
-            st.caption(f"Search: {x_result['query']} · Window: {x_result['mode']} · Checked: {x_result['checked_at']}")
-            st.caption(x_result["coverage"])
-            if not x_result["posts"]:
-                st.write(
-                    "No matching accessible posts were returned in this limited search. "
-                    "This is NOT evidence that the person never said it or that the claim is false."
-                )
-            for i, x_post in enumerate(x_result["posts"], 1):
-                with st.expander(
-                    f"{i}. {x_post['comparison']['label']} · {x_post['published_at']}",
-                    expanded=i == 1,
-                ):
-                    st.write("“" + " ".join(x_post["text"].split()[:25]) +
-                             ("…" if len(x_post["text"].split()) > 25 else "") + "”")
-                    st.caption(
-                        f"{x_post['kind']} · Published: {x_post['published_at']} · "
-                        "Similarity refers to words, not truth, intent or identity."
-                    )
-                    st.link_button("Open original X post", x_post["url"])
-
-        if direct_result:
-            st.markdown("**Direct post author check**")
-            if direct_result["owner_matches"] and direct_result.get("repost"):
-                st.warning(
-                    "X confirms the selected account reposted another account's content. "
-                    "This does NOT establish that this person authored the original statement."
-                )
-            elif direct_result["owner_matches"]:
-                st.success(
-                    "X attributes the supplied post ID to this account ID. "
-                    "The person's identity and the meaning of the statement still require independent review."
-                )
-                source_post = direct_result.get("post")
-                if source_post:
-                    st.write("“" + " ".join(source_post["text"].split()[:25]) +
-                             ("…" if len(source_post["text"].split()) > 25 else "") + "”")
-                    st.caption(
-                        f"{source_post['kind']} · {source_post['published_at']} · "
-                        f"{direct_result['comparison']['label']}"
-                    )
-            else:
-                st.error(
-                    "The supplied X post was authored by a different X account ID. "
-                    "Do not attribute it to the queried account."
-                )
-            st.link_button("Inspect original X post", direct_result["post_url"])
-
-        if x_result or direct_result:
-            st.markdown("**Editorial attribution decision**")
-            owner_confirmed = st.checkbox(
-                "I independently checked that this X account belongs to the named person or organisation.",
-                key="x_identity_reviewed",
-            )
-            x_notes = st.text_area(
-                "JOURNALIST'S SOURCE NOTES",
-                key="x_source_notes",
-                placeholder="Link to the official website naming this handle; original statement context; date; why a quotation is supported or disputed.",
-            )
-            st.download_button(
-                "Download social-account evidence brief (.md)",
-                social_evidence_brief(
-                    x_handle, social_claim, direct_result or x_result, x_notes, owner_confirmed,
-                ),
-                file_name="rumourprint_x_account_research.md",
-                mime="text/markdown",
-            )
-            st.caption(
-                "The downloaded report records research evidence, not a conclusive verdict. "
-                "X deleted posts, earlier handle changes or older posts outside the selected search window may not be returned."
-            )
-        else:
-            st.caption(
-                "No API-verified account post has been examined in this session. "
-                "A screenshot, search snippet or unverified handle is insufficient proof of attribution."
-            )
-
-    with image_tab:
-        st.subheader("Image authenticity & Content Credentials")
-        st.caption(
-            "Upload an image to inspect local file metadata and signed provenance statements, when available. "
-            "This is NOT a validated AI-image classifier and cannot reliably measure the percentage edited or generated."
-        )
-        st.warning(
-            "No existing detector can reliably classify all AI-generated or AI-edited pictures, or measure "
-            "the exact percentage of AI pixels. Missing AI metadata does not mean an image is genuine."
-        )
-        upload = st.file_uploader(
-            "UPLOAD AN IMAGE (JPG, PNG OR WEBP, UP TO 8 MB)",
-            type=["jpg", "jpeg", "png", "webp"],
-            key="image_provenance_upload",
-            help="Avoid faces and private imagery unless you have permission. No third-party AI API receives the image from this tool.",
-        )
-        if upload is not None:
-            if upload.size > 8 * 1024 * 1024:
-                st.warning("This image exceeds the 8 MB analysis limit. Choose a smaller image.")
-            if st.button("Inspect image provenance", type="primary", disabled=upload.size > 8 * 1024 * 1024):
-                try:
-                    with st.spinner("Inspecting file, metadata and Content Credentials..."):
-                        st.session_state.image_review = analyse_image(upload.getvalue(), upload.name)
-                    st.success("Metadata review completed. Interpret the result with the original image and sources.")
-                except ImageReviewError as exc:
-                    st.error(str(exc))
-        img = st.session_state.get("image_review")
-        if img and upload is not None and sha256(upload.getvalue()).hexdigest() == img["sha256"]:
-            st.image(upload, caption="Analysed image — always verify its original source", width=450)
-            st.subheader("Image provenance findings")
-            p1, p2, p3 = st.columns(3)
-            with p1:
-                st.metric("Provenance finding", img["finding"])
-            with p2:
-                st.metric("C2PA credentials", img["c2pa_status"])
-            with p3:
-                st.metric("AI-edited portion", "Not measurable")
-            st.write(img["reason"])
-            st.caption(img["metadata_note"])
-            st.code("SHA-256: " + img["sha256"], language="text")
-            if img.get("issuer"):
-                st.markdown("**Declared credential issuer:** " + str(img["issuer"]))
-            if img["actions"]:
-                st.markdown("**Creation/editing history from Content Credentials:**")
-                for action in img["actions"]:
-                    st.write("• " + action)
-            if img["metadata"]:
-                with st.expander("Image metadata fields"):
-                    st.json(img["metadata"])
-            image_notes = st.text_area(
-                "JOURNALIST'S IMAGE REVIEW NOTES",
-                placeholder="Where did you obtain the original file? Is there a verifiable source? What editing disclosures exist?",
-                key="image_review_notes",
-            )
-            st.download_button(
-                "Download image provenance brief (.md)",
-                image_report(img, image_notes),
-                file_name="rumourprint_image_provenance.md",
-                mime="text/markdown",
-            )
-        st.caption("C2PA is a cryptographically signed provenance standard. Traditional EXIF metadata can be altered. Absence of signed credentials is inconclusive.")
-
-elif page == "Relationship map":
-    st.markdown("""
-        <div class="rp-page-header">
-          <div class="rp-page-kicker">WORKSPACE <span>/</span> RELATIONSHIP MAP</div>
-          <h1>Map the changing story<span class="rp-title-dot">.</span></h1>
-          <p>Explore how submitted versions of a narrative relate to each other. Lines show similarity only—not real-world transmission, chronology, or authorship.</p>
-        </div>""", unsafe_allow_html=True)
-    st.info("Research visualisation: every point is a message in your current session library. Connected points have similar wording or meaning. This is **not** a social-network spread graph or a truth score.")
-    section_heading("01", "CLAIM RELATIONSHIPS", "Build the relationship map", "Adjust the connection threshold to examine stronger or weaker similarity links.")
-    if len(st.session_state.reports) < 2:
-        st.warning("Add at least two messages in Investigation desk before creating a relationship map.")
-    else:
-        if len(st.session_state.reports) > 60:
-            st.warning("The map visualises the first 60 claims in this version, to keep it fast. The complete library remains accessible elsewhere.")
-        if st.button("Build / refresh relationship map  →", type="primary"):
-            model, mode, error = selected_model()
-            if error:
-                st.warning("Local AI model unavailable; this map will use quick wording comparison. Try again after model setup if necessary.")
-            items = [dict(row) for row in st.session_state.reports[:60]]
-            try:
-                with st.spinner("Analysing narrative similarities and preparing the graph…"):
-                    matrix = pairwise_scores([row["text"] for row in items], model=model)
-                st.session_state.map_matrix = matrix
-                st.session_state.map_method = mode
-                st.session_state.map_items = items
-            except Exception as exc:
-                st.error(f"Could not build map: {exc}. Switch the analysis engine to Quick text matching and retry.")
-
-        matrix = st.session_state.get("map_matrix")
-        items = st.session_state.get("map_items", [])
-        if matrix is None:
-            st.markdown('<div class="rp-empty-state"><div class="rp-empty-mark">◎</div><h3>Ready to connect the claims</h3><p>Build the relationship map to reveal clusters, isolated messages and potentially important differences.</p></div>', unsafe_allow_html=True)
-        elif len(matrix) != len(items):
-            st.error("The map data is out of date. Click Build / refresh relationship map to recalculate.")
-        else:
-            default_threshold = 0.61 if st.session_state.map_method == "semantic" else 0.44
-            threshold = st.slider("MINIMUM CONNECTION STRENGTH", min_value=0.30, max_value=0.95, value=default_threshold, step=0.01,
-                                  help="Higher thresholds show only more similar message pairs. These are heuristic similarity scores, not likelihoods or probabilities.")
-            graph = build_network(items, matrix, threshold)
-            groups_with_links = sum(len(group) > 1 for group in graph["components"])
-            isolated = sum(len(group) == 1 for group in graph["components"])
-            col1, col2, col3, col4 = st.columns(4)
-            col1.metric("MESSAGES", len(items))
-            col2.metric("SIMILARITY LINKS", len(graph["edges"]))
-            col3.metric("CONNECTED GROUPS", groups_with_links)
-            col4.metric("ISOLATED MESSAGES", isolated)
-            st.caption(f"Engine: {'Multilingual semantic AI' if st.session_state.map_method == 'semantic' else 'Quick wording matching'} · Minimum connection {threshold:.0%} · Node numbers correspond to the list below.")
-            try:
-                fig = figure_for_network(graph, items)
-                st.plotly_chart(fig, use_container_width=True, config={"displaylogo": False, "displayModeBar": False})
-                from plotly.io import to_html
-                html_export = to_html(fig, include_plotlyjs=True, full_html=True)
-                st.download_button("Download interactive map (.html)", data=html_export,
-                                   file_name="rumourprint_relationship_map.html", mime="text/html")
-                st.caption("The downloadable HTML includes message text in node tooltips. Keep it private if your investigation contains sensitive information.")
-            except ImportError:
-                st.error("Plotly is missing. Check the hosting logs and the project requirements for Plotly.")
-            st.divider()
-            st.markdown("**Strongest candidate connections**")
-            st.caption("These are the closest submitted-message pairs at the selected threshold. A high similarity score does not imply a claim is true or that either message was shared first.")
-            ranked_edges = sorted(graph["edges"], key=lambda edge: (-edge["weight"], edge["source"], edge["target"]))[:12]
-            if ranked_edges:
-                st.dataframe(
-                    [
-                        {
-                            "MESSAGE A": f"#{edge['source'] + 1:02d}",
-                            "MESSAGE B": f"#{edge['target'] + 1:02d}",
-                            "SIMILARITY": f"{edge['weight'] * 100:.0f}/100",
-                            "REVIEW CUE": shift_signals(items[edge["target"]]["text"], items[edge["source"]]["text"])[0],
-                        }
-                        for edge in ranked_edges
-                    ],
-                    use_container_width=True,
-                    hide_index=True,
-                )
-            else:
-                st.info("No pairs pass the current threshold. Try lowering the connection strength to inspect weaker candidates.")
-            st.divider()
-            section_heading("02", "CLAIM EVOLUTION REVIEW", "Compare two versions", "Select two submitted messages to inspect exact wording changes and possible shifts in meaning.")
-            labels = [f"#{i+1:02d} · {str(item.get('source','Unknown'))[:22]} · {item['text'][:65]}" for i, item in enumerate(items)]
-            c_a, c_b = st.columns(2)
-            with c_a:
-                first = st.selectbox("VERSION A (REFERENCE)", range(len(items)), format_func=lambda i: labels[i], index=0)
-            with c_b:
-                second = st.selectbox("VERSION B (COMPARED)", range(len(items)), format_func=lambda i: labels[i], index=min(1,len(items)-1))
-            if first == second:
-                st.info("Select two different messages to compare changes.")
-            else:
-                a, b = items[first], items[second]
-                old_markup, new_markup = highlight_differences(a["text"], b["text"])
-                c1, c2 = st.columns(2)
-                with c1:
-                    st.markdown(f'<div class="rp-diff-panel"><div class="rp-diff-label">VERSION A · {escape(a.get("source", "Unknown"))}</div><div class="rp-diff-text">{old_markup}</div></div>', unsafe_allow_html=True)
-                with c2:
-                    st.markdown(f'<div class="rp-diff-panel"><div class="rp-diff-label">VERSION B · {escape(b.get("source", "Unknown"))}</div><div class="rp-diff-text">{new_markup}</div></div>', unsafe_allow_html=True)
-                st.caption(f"Pairwise similarity: {matrix[first][second]*100:.0f}/100 · Red = removed/replaced in version A; green = added/replaced in version B. Ordering here is chosen by you, not inferred publication order.")
-                st.markdown("**Changes worth investigating**")
-                for signal in shift_signals(b["text"], a["text"]):
-                    st.markdown(f"- {signal}")
-                st.caption("Matching narratives can disagree or directly contradict each other. Check dates, original evidence and context before drawing conclusions.")
-            st.divider()
-            section_heading("03", "MAP REFERENCE", "Messages included in the map", "The numbered entries correspond to the nodes in the diagram.")
-            for i, item in enumerate(items):
-                with st.expander(f"#{i+1:02d} · {item.get('source', 'Unknown')} · {item['text'][:78]}"):
-                    st.write(item["text"])
-                    st.caption(f"Recorded: {item.get('time', 'Unknown')} · No source authenticity verified")
-            st.caption("Changing the slider changes the visual connections, not the underlying messages. The map groups are exploratory and should be reviewed by a journalist.")
-
-elif page == "Claim library":
-    st.markdown('''
-        <div class="rp-page-header">
-          <div class="rp-page-kicker">WORKSPACE <span>/</span> CLAIM LIBRARY</div>
-          <h1>Claim library<span class="rp-title-dot">.</span></h1>
-          <p>Review stored claims, export your research and import CSV files from earlier sessions.</p>
-        </div>''', unsafe_allow_html=True)
-    section_heading("01", "SAVED MATERIAL", "Submitted messages", "Review the claims currently stored in your working session, then export or import material as needed.")
-    if not st.session_state.reports:
-        st.info("Your claim library is empty. Submit two or more public claims in Investigation desk to compare narratives and build the relationship map.")
-    st.dataframe(
-        list(reversed(st.session_state.reports)), use_container_width=True, hide_index=True,
-        column_config={
-            "text": st.column_config.TextColumn("CLAIM / TRANSCRIPT", width="large"),
-            "source": st.column_config.TextColumn("SOURCE", width="medium"),
-            "time": st.column_config.TextColumn("SUBMITTED", width="medium"),
-        },
+with st.container(border=True):
+    st.markdown("#### 1. What would you like to check?")
+    claim = st.text_area(
+        "Paste the message or type what you heard",
+        key="public_claim",
+        height=145,
+        max_chars=2500,
+        placeholder=(
+            "Example (fictional): Makerere University has cancelled all examinations "
+            "following an announcement by the Ministry of Education."
+        ),
+        label_visibility="collapsed",
     )
-    st.download_button(
-        "Export claim library  ↓", export_csv(), "rumourprint_claims.csv",
-        "text/csv", use_container_width=False,
+    st.markdown("#### 2. Where did you see or hear it?")
+    origin = st.radio(
+        "Choose where the message came from",
+        PROVENANCE_OPTIONS,
+        key="origin",
+        horizontal=True,
+        label_visibility="collapsed",
     )
-    section_heading("02", "DATA PORTABILITY", "Import earlier messages", "Import previously exported CSV records into this session without deleting existing items.")
-    uploaded = st.file_uploader("Claim library CSV", type=["csv"], accept_multiple_files=False)
-    if uploaded and st.button("Import messages"):
-        try:
-            if uploaded.size > 1_000_000:
-                raise ValueError("CSV must be smaller than 1 MB.")
-            decoded = uploaded.getvalue().decode("utf-8-sig")
-            rows = csv.DictReader(io.StringIO(decoded))
-            if not rows.fieldnames or "text" not in rows.fieldnames:
-                raise ValueError("CSV must contain a 'text' column.")
-            added, skipped = 0, 0
-            existing = {row["text"].strip().casefold() for row in st.session_state.reports}
-            for row in rows:
-                text = (row.get("text") or "").strip()
-                if not 15 <= len(text) <= MAX_TEXT or text.casefold() in existing or len(st.session_state.reports) >= MAX_CLAIMS:
-                    skipped += 1
-                    continue
-                add_row(text, (row.get("source") or "Imported")[:100], (row.get("time") or "Imported")[:80])
-                existing.add(text.casefold())
-                added += 1
-            st.success(f"Imported {added} messages; skipped {skipped} duplicates, invalid or excess rows.")
-        except (UnicodeDecodeError, csv.Error, ValueError) as exc:
-            st.error(f"Import failed: {exc}")
-    st.caption("Your library is stored only in this browser session, not saved as a permanent account. Export important work; do not submit private or identifying information to this public demo.")
+    st.caption("You don't need to know any technical terms or write search keywords. We do that for you.")
+    run = st.button(
+        "🔎 Investigate",
+        type="primary",
+        use_container_width=True,
+        disabled=len(claim.strip()) < 10,
+    )
+    if len(claim.strip()) < 10:
+        st.caption("Paste or type a short statement first to activate Investigate.")
 
+if run:
+    clean_claim = " ".join(claim.split())
+    st.session_state["investigated_claim"] = clean_claim
+    st.session_state["investigated_origin"] = origin
+    st.session_state["news_results"] = None
+    st.session_state["social_results"] = None
+    st.session_state["x_public_results"] = None
+    st.session_state["picture_results"] = None
+    with st.spinner("Searching news and public reports using automatically generated search words…"):
+        try:
+            st.session_state["news_results"] = investigate_text(
+                clean_claim,
+                brave_key=secret("BRAVE_SEARCH_API_KEY"),
+                fact_key=secret("GOOGLE_FACTCHECK_API_KEY"),
+            )
+        except PublicSearchError as exc:
+            st.session_state["news_error"] = str(exc)
+    with st.spinner("Looking for related public social media posts…"):
+        st.session_state["social_results"] = social_discovery(
+            clean_claim, brave_key=secret("BRAVE_SEARCH_API_KEY"),
+        )
+        # Avoid unexpected charges on an open-access demo.
+        if secret("ENABLE_PUBLIC_X_SEARCH").lower() == "true" and secret("X_BEARER_TOKEN"):
+            st.session_state["x_public_results"] = public_x_posts(
+                clean_claim, token=secret("X_BEARER_TOKEN"),
+            )
+
+saved_claim = st.session_state.get("investigated_claim", "")
+news = st.session_state.get("news_results")
+social = st.session_state.get("social_results")
+
+if saved_claim:
+    st.markdown(
+        '<div class="rp-search-summary"><span class="rp-summary-mark">✓</span>'
+        '<div><strong>Your search is ready</strong><small>Search words chosen for you: '
+        + escape(automatic_terms(saved_claim)) + '</small></div></div>',
+        unsafe_allow_html=True,
+    )
+    st.caption("You can change the message above and tap Investigate again to start a new check.")
 else:
-    st.markdown('''
-        <div class="rp-page-header">
-          <div class="rp-page-kicker">WORKSPACE <span>/</span> ABOUT &amp; ETHICS</div>
-          <h1>Built for responsible investigation<span class="rp-title-dot">.</span></h1>
-          <p>The platform helps journalists compare changing claims, organise related narratives and document evidence-led review.</p>
-        </div>
-        <div class="rp-ethics-grid">
-          <div class="rp-ethics-card"><span>01 / SEMANTIC SIMILARITY</span><h3>Related in meaning</h3>
-          <p>A server-hosted multilingual embedding model finds possible related claims, even when their exact wording differs. Scores are not probabilities.</p></div>
-          <div class="rp-ethics-card"><span>02 / EDITORIAL STANDARD</span><h3>No automated verdicts</h3>
-          <p>The model does not establish truth, authorship or transmission paths. Related claims may explicitly contradict each other.</p></div>
-          <div class="rp-ethics-card"><span>03 / LOCAL PRIVACY</span><h3>Server-side AI</h3>
-          <p>The hosted server downloads the model when needed. The downloaded model runs on the app server and no text is sent to an external AI API for semantic matching. The free hosted app has no user accounts or permanent case storage.</p></div>
-          <div class="rp-ethics-card"><span>04 / LANGUAGE LIMITATIONS</span><h3>Test translations</h3>
-          <p>Multilingual training does not guarantee reliable Luganda results. Review all matches and evaluate on actual local-language samples.</p></div>
-        </div>''', unsafe_allow_html=True)
-    st.caption(f"AI model: {MODEL_NAME}. Live news search is available; full-article extraction, direct platform ingestion, media forensics and automated truth verdicts are not implemented.")
+    st.markdown(
+        '<div class="rp-intro-tip">👇 After you tap <strong>Investigate</strong>, '
+        'open the News, Social media or Pictures section below to see what we found.</div>',
+        unsafe_allow_html=True,
+    )
+
+news_tab, socials_tab, picture_tab = st.tabs(["📰 News", "💬 Social media search", "🖼️ Image search"])
+
+with news_tab:
+    st.markdown("### News and published stories")
+    st.write("Find articles about the message. Open the original pages and compare what they actually say.")
+    if not saved_claim:
+        st.info("Enter a claim above and tap Investigate to search news.")
+    elif news:
+        items = news.get("articles", [])
+        count = len(items)
+        st.markdown(f"**{count} related article or website link{'s' if count != 1 else ''} found**")
+        st.caption("This is what the enabled search services returned, not the number of all articles on the internet.")
+        for i, item in enumerate(items[:12], 1):
+            result_card(item, i)
+        if len(items) > 12:
+            with st.expander(f"See {len(items) - 12} more links"):
+                for i, item in enumerate(items[12:45], 13):
+                    result_card(item, i)
+        reviews = news.get("reviews", [])
+        if reviews:
+            with st.expander(f"See {len(reviews)} published fact-check review(s)"):
+                st.caption("These are other organisations' reviews, not RUMOURPRINT's conclusion.")
+                for i, item in enumerate(reviews, 1):
+                    result_card(item, i)
+        if not items:
+            st.warning("No results came back from the active sources. That does not mean the claim is false.")
+        errors = [x.get("error") for x in news.get("status", []) if x.get("error")]
+        if errors:
+            with st.expander("Sources we couldn't search"):
+                for warning in dict.fromkeys(errors):
+                    st.caption(warning)
+        with st.expander("Need to look further?"):
+            st.caption("Some articles are missing from search indexes. You can expand your search yourself.")
+            q = automatic_terms(saved_claim)
+            st.link_button("Try Google Search", "https://www.google.com/search?" + urlencode({"q": q}))
+            st.link_button("Try Bing Search", "https://www.bing.com/search?" + urlencode({"q": q}))
+            st.caption(news["scope"])
+    else:
+        st.warning(st.session_state.get("news_error", "News search is not available right now. Please try again."))
+
+with socials_tab:
+    st.markdown("### What are people saying online?")
+    st.write(
+        "Look for public posts with similar words. Open the original post to check who posted it and when."
+    )
+    if not saved_claim:
+        st.info("Enter a claim above and tap Investigate to look for public social media posts.")
+    else:
+        social = social or social_discovery(saved_claim)
+        x_result = st.session_state.get("x_public_results") or {}
+        x_posts = x_result.get("posts") or []
+        if x_posts:
+            st.markdown(f"**{len(x_posts)} recent public X posts returned**")
+            for i, post in enumerate(x_posts[:8], 1):
+                st.markdown(f"**@{post['handle']} — {post['display_name']}**")
+                st.caption(f"{post['created_at']} · {post['post_kind']}")
+                st.write("“" + " ".join(post["text"].split()[:38]) + "”")
+                st.link_button("Open original post ↗", post["url"], use_container_width=True)
+            if len(x_posts) > 8:
+                with st.expander(f"See {len(x_posts) - 8} more X posts"):
+                    for post in x_posts[8:]:
+                        st.markdown(f"**@{post['handle']}** · {post['created_at']}")
+                        st.link_button("Open original post ↗", post["url"])
+        elif x_result.get("error"):
+            st.caption("X could not return posts: " + x_result["error"])
+
+        indexed = social.get("posts", [])
+        if indexed:
+            st.markdown(f"**{len(indexed)} public social post links also appeared in web search**")
+            for i, hit in enumerate(indexed[:10], 1):
+                result_card(hit, i, kind="post")
+            if len(indexed) > 10:
+                with st.expander(f"See {len(indexed) - 10} more post links"):
+                    for i, hit in enumerate(indexed[10:], 11):
+                        result_card(hit, i, kind="post")
+
+        st.markdown("#### Search each social network")
+        st.caption("These buttons open searches for your claim. Some social sites need you to sign in.")
+        for platform, link in social["search_links"].items():
+            st.link_button("Search on " + platform + " ↗", link, use_container_width=True)
+        people = social.get("possible_names") or []
+        if people:
+            st.markdown("#### People or organisations to check")
+            st.caption("Names below are suggestions from the wording, not verified accounts or endorsements.")
+            for person in people:
+                st.link_button(
+                    "Find public statements mentioning " + person,
+                    "https://www.google.com/search?" + urlencode({
+                        "q": person + " " + automatic_terms(saved_claim)[:85] + " site:x.com"
+                    }),
+                )
+        st.info(
+            "We cannot prove a social account belongs to a person just because it has their name or a badge. "
+            "Check the original account against the person's official website or other independent source."
+        )
+        if not indexed and not x_posts:
+            st.caption("No public post links returned by connected services. Use the social-search links above; empty results don't prove nobody posted it.")
+        if social.get("warnings"):
+            with st.expander("What we could and couldn't search"):
+                for message in social["warnings"]:
+                    st.caption(message)
+        if not secret("BRAVE_SEARCH_API_KEY") or not secret("ENABLE_PUBLIC_X_SEARCH").lower() == "true":
+            st.caption("Automatic social-media coverage is limited until additional provider connections are enabled.")
+
+with picture_tab:
+    st.markdown("### Check a picture")
+    st.write("Upload a photo, flyer or screenshot. We can look for words in it and show what its file information says.")
+    upload = st.file_uploader(
+        "Choose a picture from your phone",
+        type=["png", "jpg", "jpeg", "webp"],
+        key="simple_image",
+        help="You can use a photo or screenshot. Please avoid uploading other people's private pictures.",
+    )
+    st.caption("Your picture is read on this app's server. Don't upload confidential or private images.")
+    vision_ready = bool(secret("GOOGLE_CLOUD_VISION_API_KEY"))
+    ask_online = False
+    if vision_ready:
+        ask_online = st.checkbox(
+            "Also look for this picture on the internet (sends the picture to Google)",
+            value=False,
+            key="share_picture_with_google",
+        )
+    else:
+        st.caption("For reverse picture searches, you can also upload the same image directly to Google Lens.")
+        st.link_button("Open Google Lens ↗", "https://lens.google.com/", use_container_width=True)
+    if upload is not None:
+        size_ok = upload.size <= 8 * 1024 * 1024
+        if not size_ok:
+            st.warning("Please choose a smaller picture, under 8 MB.")
+        do_picture = st.button("🔎 Check this picture", type="primary",
+                               use_container_width=True, disabled=not size_ok)
+        if do_picture:
+            content = upload.getvalue()
+            try:
+                with st.spinner("Checking picture details and looking for text…"):
+                    details = analyse_image(content, upload.name)
+                    story = human_picture_story(details)
+                    reading = None
+                    reading_error = ""
+                    try:
+                        reading = read_words_in_picture(content, engine=ocr_engine_cached())
+                    except PictureResearchError as exc:
+                        reading_error = str(exc)
+                    reverse = None
+                    reverse_error = ""
+                    if ask_online:
+                        try:
+                            reverse = reverse_picture_search(content, secret("GOOGLE_CLOUD_VISION_API_KEY"))
+                        except PictureResearchError as exc:
+                            reverse_error = str(exc)
+                    st.session_state["picture_results"] = {
+                        "hash": sha256(content).hexdigest(), "info": details,
+                        "story": story, "ocr": reading, "ocr_error": reading_error,
+                        "reverse": reverse, "reverse_error": reverse_error,
+                        "news": None,
+                    }
+            except ImageReviewError as exc:
+                st.error(str(exc))
+                st.session_state["picture_results"] = None
+
+        picture = st.session_state.get("picture_results")
+        if picture and picture["hash"] == sha256(upload.getvalue()).hexdigest():
+            st.image(upload, caption="Picture you selected", use_container_width=True)
+            st.markdown("#### What can we tell from this picture?")
+            for message in picture["story"]:
+                st.write("• " + message)
+            st.caption(
+                "The file's camera and software records can be removed or changed. "
+                "We cannot tell what percentage of the picture was made with AI."
+            )
+
+            reading = picture.get("ocr") or {}
+            st.markdown("#### Words found in your picture")
+            if reading.get("found"):
+                st.text_area("You can copy these words", value=reading["text"][:1800],
+                             height=110, key="ocr_display")
+                st.caption("Computer-read text may contain mistakes. Check it against the picture.")
+                if st.button("🔎 Find news about these words", use_container_width=True):
+                    with st.spinner("Searching related news and published reports…"):
+                        try:
+                            picture["news"] = investigate_text(
+                                reading["text"][:800],
+                                brave_key=secret("BRAVE_SEARCH_API_KEY"),
+                                fact_key=secret("GOOGLE_FACTCHECK_API_KEY"),
+                            )
+                            picture["news_error"] = ""
+                        except PublicSearchError as exc:
+                            picture["news_error"] = str(exc)
+                if picture.get("news"):
+                    hits = picture["news"]["articles"]
+                    st.markdown(f"**{len(hits)} related news links found**")
+                    for i, hit in enumerate(hits[:10], 1):
+                        result_card(hit, i)
+                if picture.get("news_error"):
+                    st.caption(picture["news_error"])
+            else:
+                st.caption(picture.get("ocr_error") or "We could not clearly read any words in this picture.")
+
+            st.markdown("#### Where else has a similar picture appeared?")
+            reverse = picture.get("reverse") or {}
+            if reverse.get("pages"):
+                st.caption(reverse["note"])
+                for i, page in enumerate(reverse["pages"], 1):
+                    st.markdown(f"**{i}. {easy_title(page['title'])}**")
+                    st.link_button("Open matching page ↗", page["url"], use_container_width=True)
+            elif picture.get("reverse_error"):
+                st.warning(picture["reverse_error"])
+            elif not vision_ready:
+                st.caption("Online picture matching isn't connected yet. Google Lens can help you search using the image itself.")
+                st.link_button("Upload this picture to Google Lens ↗", "https://lens.google.com/",
+                               use_container_width=True)
+            elif not ask_online:
+                st.caption("Online picture matching was not requested. Tick the sharing option and check again if you want to use it.")
+            else:
+                st.caption("No matching pages were returned. That doesn't prove this is an original photo.")
+
+            st.info(
+                "We do not identify a person from their face. Matching web pages may contain descriptions "
+                "to investigate, but a name on a page is not verified identification. Comparing two pictures "
+                "also does not automatically prove that one was altered."
+            )
+
+if saved_claim:
+    st.download_button(
+        "↓ Save the links from this investigation",
+        research_brief(
+            saved_claim, st.session_state.get("investigated_origin", "Not specified"),
+            news, social,
+        ),
+        file_name="rumourprint-research-links.md", mime="text/markdown",
+        use_container_width=True,
+    )
 
 st.markdown(
-    '<div class="rp-main-footer">RUMOURPRINT AI <span>·</span> Powered by Fresh Exclusive Media <span>·</span> Version 0.8</div>',
+    '<div class="rp-trust-strip"><strong>Our promise to you</strong>'
+    '<p>No automatic “true” or “false” labels. We show related links, explain uncertainty '
+    'and let you decide what the original sources mean.</p>'
+    '<p>Private messages, screenshots and images may contain sensitive information. '
+    'Only share material you have permission to investigate.</p></div>',
+    unsafe_allow_html=True,
+)
+st.markdown(
+    '<div class="rp-footer"><strong>RUMOURPRINT AI</strong> · Powered by '
+    '<strong>Fresh Exclusive Media</strong> · Ubuntu-inspired human-first design · '
+    '<a href="https://tools.freshexclusivemedia.com/privacy.html" target="_blank">Privacy &amp; safe use</a>'
+    '</div>',
     unsafe_allow_html=True,
 )
