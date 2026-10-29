@@ -1,6 +1,6 @@
-"""Small, sourced directory of public institutional X account candidates.
+"""Small, sourced directory of public figure and institution X account candidates.
 
-A link in an old institutional page is a starting point, not a guarantee
+A link in a public source is a starting point, not a guarantee
 that the same person controls an account today. Never imply a blue badge
 independently establishes real-world identity.
 """
@@ -10,6 +10,13 @@ from urllib.parse import urlencode
 from evidence import suggest_query
 
 DIRECTORY = (
+    {
+        "name": "Gen. Muhoozi Kainerugaba",
+        "phrases": ("muhoozi kainerugaba", "general muhoozi", "gen muhoozi", "kainerugaba"),
+        "handle": "mkainerugaba",
+        "reference": "https://africacheck.org/fact-checks/meta-programme-fact-checks/no-ugandas-military-chief-muhoozi-kainerugaba-did-not",
+        "source_label": "Independent Africa Check examination of an attributed X statement",
+    },
     {
         "name": "Uganda Police Force",
         "phrases": ("uganda police force", "uganda police", "police spokesman", "police spokesperson"),
@@ -56,6 +63,6 @@ def suggested_institution_accounts(claim: str) -> list[dict]:
             "source": account["reference"],
             "source_label": account["source_label"],
             "x_search": "https://x.com/search?" + urlencode({"q": query, "f": "live"}),
-            "warning": "Likely institutional account — check current ownership and the exact post.",
+            "warning": "Candidate source-linked account — confirm ownership independently and read the original post.",
         })
     return result[:4]
