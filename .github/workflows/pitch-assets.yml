@@ -1,0 +1,30 @@
+name: Capture hackathon slides photographs and screenshots
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/pitch-assets.yml'
+      - 'scripts/gather_pitch_assets.py'
+permissions:
+  contents: read
+jobs:
+  capture-presentation-assets:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install screenshot and photo utilities
+        run: |
+          python -m pip install requests pillow playwright
+          python -m playwright install chromium --with-deps
+      - name: Download Creative Commons photographs and capture live app view
+        run: python scripts/gather_pitch_assets.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rumourprint-hackathon-visual-assets
+          path: pitch-assets/
+          retention-days: 7
