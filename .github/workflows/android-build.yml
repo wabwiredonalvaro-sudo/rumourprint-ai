@@ -67,15 +67,15 @@ jobs:
       - name: Create persistent Android beta download
         uses: softprops/action-gh-release@v3
         with:
-          tag_name: android-v0.1.0-beta.1
+          tag_name: android-v0.2.0-beta.1
           target_commitish: main
-          name: RUMOURPRINT AI for Android — Public Beta 1
+          name: RUMOURPRINT AI for Android — Public Beta 2
           prerelease: true
           make_latest: false
           body: |
             RUMOURPRINT AI by Fresh Exclusive Media — Android public testing release.
 
-            This APK is a DEBUG-SIGNED beta build for device testing, not a production-signed release or a Google Play Store app. It uses https://rumourprint-fem.streamlit.app/ and requires internet. The hosted investigation service has temporary session storage; do not submit confidential materials.
+            This APK is a DEBUG-SIGNED beta build for device testing, not a production-signed release or a Google Play Store app. It opens https://rumourprint-fem.streamlit.app/ for live investigations (internet required), and includes 20 original educational reading guides available in an offline library even without internet. Updated guides download when the app is reopened online. This is NOT an offline AI claim verifier or a reproduction of publisher article archives.
 
             Android 8.0+ supported. Install only if you trust the source.
             Upgrading later APKs may require uninstalling this beta due to debug-signing key changes.

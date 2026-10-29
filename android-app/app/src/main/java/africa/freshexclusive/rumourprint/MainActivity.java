@@ -37,9 +37,23 @@ import android.widget.TextView;
 import android.widget.Toast;
 import android.webkit.ValueCallback;
 
+import android.content.SharedPreferences;
+import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
+import java.net.URL;
+import javax.net.ssl.HttpsURLConnection;
+import java.nio.charset.StandardCharsets;
+import org.json.JSONObject;
+import org.json.JSONArray;
+
 public class MainActivity extends Activity {
     private static final String HOME = "https://rumourprint-fem.streamlit.app/?embed=true";
     private static final String APP_HOST = "rumourprint-fem.streamlit.app";
+    private static final String OFFLINE_BASE = "https://offline.rumourprint.invalid/";
+    private static final String OFFLINE_FEED = "https://tools.freshexclusivemedia.com/offline-library.json";
+    private static final String OFFLINE_PREFS = "rumourprint_offline";
+    private boolean offlineLibraryVisible = false;
+
     private static final int FILE_PICKER_REQUEST = 4102;
     private static final int DARK = Color.rgb(21, 39, 38);
     private static final int PAGE = Color.rgb(243, 245, 244);
@@ -125,7 +139,7 @@ public class MainActivity extends Activity {
         TextView reload = text("⟳", 26, LIGHT, false);
         reload.setGravity(Gravity.CENTER);
         reload.setContentDescription("Refresh application");
-        reload.setOnClickListener(v -> webView.reload());
+        reload.setOnClickListener(v -> webView.loadUrl(HOME));
         header.addView(reload, new LinearLayout.LayoutParams(dp(43), dp(49)));
 
         TextView open = text("↗", 25, LIGHT, false);
@@ -133,6 +147,12 @@ public class MainActivity extends Activity {
         open.setContentDescription("Open RUMOURPRINT in browser to export reports");
         open.setOnClickListener(v -> openExternal(Uri.parse(HOME)));
         header.addView(open, new LinearLayout.LayoutParams(dp(43), dp(49)));
+
+        TextView library = text("📚", 23, LIGHT, false);
+        library.setGravity(Gravity.CENTER);
+        library.setContentDescription("Read offline library without mobile data");
+        library.setOnClickListener(v -> showOfflineLibrary());
+        header.addView(library, new LinearLayout.LayoutParams(dp(46), dp(49)));
 
         progress = new ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
         progress.setMax(100);
@@ -231,6 +251,9 @@ public class MainActivity extends Activity {
 
             @Override
             public void onPageStarted(WebView view, String url, android.graphics.Bitmap favicon) {
+                if (url != null && url.startsWith("https://" + APP_HOST)) {
+                    offlineLibraryVisible = false;
+                }
                 progress.setVisibility(View.VISIBLE);
                 errorPanel.setVisibility(View.GONE);
             }
@@ -244,7 +267,11 @@ public class MainActivity extends Activity {
             public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
                 if (request.isForMainFrame()) {
                     progress.setVisibility(View.GONE);
-                    errorPanel.setVisibility(View.VISIBLE);
+                    if (!offlineLibraryVisible) {
+                        showOfflineLibrary();
+                    } else {
+                        errorPanel.setVisibility(View.VISIBLE);
+                    }
                 }
             }
         });
@@ -301,6 +328,101 @@ public class MainActivity extends Activity {
         });
     }
 
+
+    private static String readSmall(InputStream input, int limit) throws java.io.IOException {
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        byte[] buffer = new byte[8192];
+        int length;
+        while ((length = input.read(buffer)) != -1) {
+            if (out.size() + length > limit) {
+                throw new java.io.IOException("Library file is unexpectedly large.");
+            }
+            out.write(buffer, 0, length);
+        }
+        return new String(out.toByteArray(), StandardCharsets.UTF_8);
+    }
+
+    private String bundledLibrary() throws java.io.IOException {
+        try (InputStream input = getAssets().open("offline-library.json")) {
+            return readSmall(input, 240_000);
+        }
+    }
+
+    private boolean validLibrary(String text) {
+        try {
+            JSONObject doc = new JSONObject(text);
+            JSONArray entries = doc.getJSONArray("articles");
+            if (entries.length() < 10 || entries.length() > 250) return false;
+            for (int i = 0; i < entries.length(); i++) {
+                JSONObject entry = entries.getJSONObject(i);
+                if (entry.getString("title").length() < 4 || entry.getJSONArray("body").length() < 1) {
+                    return false;
+                }
+            }
+            return true;
+        } catch (Exception ex) {
+            return false;
+        }
+    }
+
+    private void showOfflineLibrary() {
+        try {
+            String library = getSharedPreferences(OFFLINE_PREFS, MODE_PRIVATE).getString("library", "");
+            if (!validLibrary(library)) library = bundledLibrary();
+            if (!validLibrary(library)) throw new java.io.IOException("No readable library found.");
+            String template;
+            try (InputStream input = getAssets().open("offline.html")) {
+                template = readSmall(input, 120_000);
+            }
+            // An embedded JSON script must not contain literal '<' characters.
+            String protectedJson = library.replace("<", "\\u003c").replace(">", "\\u003e");
+            String page = template.replace("__RUMOURPRINT_LIBRARY_JSON__", protectedJson);
+            offlineLibraryVisible = true;
+            progress.setVisibility(View.GONE);
+            errorPanel.setVisibility(View.GONE);
+            webView.loadDataWithBaseURL(OFFLINE_BASE, page, "text/html", "UTF-8", OFFLINE_BASE);
+        } catch (Exception ex) {
+            errorPanel.setVisibility(View.VISIBLE);
+            Toast.makeText(this, "The offline library could not be opened.", Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private void refreshOfflineLibraryWhenConnected() {
+        SharedPreferences preferences = getSharedPreferences(OFFLINE_PREFS, MODE_PRIVATE);
+        long now = System.currentTimeMillis();
+        long lastAttempt = preferences.getLong("last_attempt", 0L);
+        if (lastAttempt > 0 && now - lastAttempt < 20L * 60L * 1000L) return;
+        preferences.edit().putLong("last_attempt", now).apply();
+
+        new Thread(() -> {
+            HttpsURLConnection connection = null;
+            try {
+                connection = (HttpsURLConnection) new URL(OFFLINE_FEED).openConnection();
+                connection.setConnectTimeout(6000);
+                connection.setReadTimeout(6500);
+                connection.setInstanceFollowRedirects(false);
+                if (connection.getResponseCode() != 200) return;
+                String received;
+                try (InputStream input = connection.getInputStream()) {
+                    received = readSmall(input, 240_000);
+                }
+                if (validLibrary(received)) {
+                    preferences.edit().putString("library", received).apply();
+                }
+            } catch (Exception ignored) {
+                // A failed refresh must never block access to the bundled offline library.
+            } finally {
+                if (connection != null) connection.disconnect();
+            }
+        }).start();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        refreshOfflineLibraryWhenConnected();
+    }
+
     private void openExternal(Uri uri) {
         try {
             startActivity(new Intent(Intent.ACTION_VIEW, uri));
@@ -324,7 +446,10 @@ public class MainActivity extends Activity {
 
     @Override
     public void onBackPressed() {
-        if (webView != null && webView.canGoBack()) {
+        if (offlineLibraryVisible) {
+            offlineLibraryVisible = false;
+            webView.loadUrl(HOME);
+        } else if (webView != null && webView.canGoBack()) {
             webView.goBack();
         } else {
             super.onBackPressed();
