@@ -115,3 +115,33 @@ def test_brave_search_filters_invalid_links_and_preserves_bounded_results():
     out=web_hits("Uganda event","TEST",requester=data)
     assert len(out)==1
     assert out[0]["url"]=="https://example.org/report"
+
+
+def test_additional_global_index_results_are_deduplicated_with_news():
+    def world(q, limit=25):
+        assert "Uganda" in q
+        return [
+            {"title":"Second independent index", "url":"https://world.example.org/report",
+             "publisher":"world.example.org","date":"2026-10-29"},
+            {"title":"Duplicate source", "url":"https://news.example.org/official-statement",
+             "publisher":"Example News","date":"2026-10-29"},
+        ]
+    response = investigate_text(CLAIM, news_search=fake_news, gdelt_search=world)
+    urls = [x["url"] for x in response["articles"]]
+    assert "https://world.example.org/report" in urls
+    assert len(urls) == len(set(urls))
+    assert any(s["provider"]=="GDELT world news index" for s in response["status"])
+
+
+def test_mocked_gdelt_feed_parses_original_urls_without_claiming_verdict():
+    from gdelt_research import search_gdelt
+    def fake(q, n):
+        return {"articles":[
+            {"url":"https://example.org/report","title":"Global report",
+             "domain":"example.org","seendate":"20261029091000"},
+            {"url":"javascript:alert(1)","title":"unsafe"},
+        ]}
+    result = search_gdelt("Uganda police public notice", fetch=fake)
+    assert len(result)==1
+    assert result[0]["date"]=="2026-10-29"
+    assert result[0]["url"]=="https://example.org/report"
