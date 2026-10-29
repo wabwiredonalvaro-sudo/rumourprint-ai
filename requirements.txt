@@ -6,3 +6,5 @@ fastembed>=0.7,<1
 trafilatura>=2.1,<3
 Pillow>=11,<13
 c2pa-python>=0.38,<0.39
+# On-server picture text reading: no visitor API key required
+rapidocr>=3.10,<4
