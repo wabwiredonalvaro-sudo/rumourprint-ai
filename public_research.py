@@ -13,9 +13,10 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
+from gdelt_research import search_gdelt
 from evidence import suggest_query, search_news, search_fact_checks, safe_link, EvidenceError
 
-NEWS_MAX = 45
+NEWS_MAX = 90
 SEARCH_QUERIES = 3
 WEB_ENDPOINT = "https://api.search.brave.com/res/v1/web/search"
 SOCIAL_DOMAINS = {
@@ -148,7 +149,7 @@ def _dedupe(results: list[dict], limit: int) -> list[dict]:
 
 def investigate_text(
     claim: str, *, brave_key: str = "", fact_key: str = "",
-    news_search=None, web_search=None, check_search=None,
+    news_search=None, web_search=None, check_search=None, gdelt_search=None,
 ) -> dict:
     """Bounded, multi-query research. Always reports actual providers and errors."""
     claim = " ".join(str(claim or "").split())[:2500]
@@ -186,6 +187,19 @@ def investigate_text(
     # Keep the first most-specific search first, not thread arrival order.
     results.sort(key=lambda x: x.get("_order", 10))
 
+    # Independent world-news index; a separate source from Google News.
+    # Do not call real network endpoints during injected offline tests.
+    if gdelt_search is not None or (news_search is None and web_search is None):
+        try:
+            gdelt_func = gdelt_search or search_gdelt
+            global_hits = gdelt_func(queries[0], limit=25)
+            results.extend(dict(x, provider="GDELT world news index", query=queries[0]) for x in global_hits)
+            status.append({"provider": "GDELT world news index", "query": queries[0],
+                           "count": len(global_hits), "error": ""})
+        except (ValueError, OSError) as exc:
+            status.append({"provider": "GDELT world news index", "query": queries[0],
+                           "count": 0, "error": "Additional global news index could not be searched right now."})
+
     if brave_key:
         for q in queries[:2]:
             try:
@@ -215,7 +229,7 @@ def investigate_text(
         "reviews": _dedupe(checks, 8),
         "status": status,
         "checked_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-        "scope": ("Searches several keyword variations across indexed news, with independent web search "
+        "scope": ("Searches multiple keyword variations in Google News and GDELT, with independent web search "
                   "and published fact-checks when enabled. Some stories and private/unindexed posts "
                   "cannot be found. A result is not a verdict."),
     }
