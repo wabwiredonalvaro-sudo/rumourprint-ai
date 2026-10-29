@@ -1,0 +1,268 @@
+{
+  "version": 1,
+  "updated": "2026-10-29",
+  "publisher": "Fresh Exclusive Media",
+  "explanation": "Original offline learning articles, not a licensed copy of publishers' full news archives; links need internet.",
+  "articles": [
+    {
+      "id": "spot-old-news",
+      "title": "When an old news story is shared as new",
+      "category": "Dates & context",
+      "updated": "2026-10-29",
+      "rights": "Original RUMOURPRINT AI educational explainer. Not a reproduced news article.",
+      "source_url": "https://africacheck.org/",
+      "source_label": "Further reading from a relevant public source",
+      "body": [
+        "An old article can be genuine and still mislead people when it is reposted as breaking news. First look for the publication date, not just the date on which somebody forwarded it. Check whether the headline refers to a past event, a plan that was later changed, or a decision that has already taken effect.",
+        "Search for the same event with the year included. Compare the original report with newer updates, and ask whether the image or quotation belongs to a different incident. If you cannot establish when something happened, say that the date is unclear instead of assuming a recent event."
+      ]
+    },
+    {
+      "id": "check-police-message",
+      "title": "How to check a notice attributed to Uganda Police",
+      "category": "Official statements",
+      "updated": "2026-10-29",
+      "rights": "Original RUMOURPRINT AI educational explainer. Not a reproduced news article.",
+      "source_url": "https://www.upf.go.ug/",
+      "source_label": "Further reading from a relevant public source",
+      "body": [
+        "Police warnings can spread quickly, especially after an arrest, road incident or public gathering. A logo in a screenshot is not proof that the statement is an original police notice. Examine the date, spokesperson, reference number, and exact wording.",
+        "Look for the original notice on police-controlled channels and reputable news reporting. Be careful when one message quotes part of a statement but leaves out the conditions or location. If you find no original notice, that is a reason to keep checking, not proof the information is false."
+      ]
+    },
+    {
+      "id": "exam-rumour",
+      "title": "Checking a claim that university examinations were cancelled",
+      "category": "Education",
+      "updated": "2026-10-29",
+      "rights": "Original RUMOURPRINT AI educational explainer. Not a reproduced news article.",
+      "source_url": "https://mak.ac.ug/",
+      "source_label": "Further reading from a relevant public source",
+      "body": [
+        "Claims about examination postponements can create panic for students and families. Begin with the name of the institution, the faculty or programme involved, and the dates mentioned. An announcement affecting one department should not be presented as applying to all students.",
+        "Look for an official university circular or announcement and check whether the notice is current. A screenshot may be genuine but from a previous semester. Compare the exact scope, dates and responsible office. When unsure, contact the university directly using details from its official website."
+      ]
+    },
+    {
+      "id": "bo-u-rates",
+      "title": "Understanding a claim about the Ugandan shilling",
+      "category": "Money & prices",
+      "updated": "2026-10-29",
+      "rights": "Original RUMOURPRINT AI educational explainer. Not a reproduced news article.",
+      "source_url": "https://www.bou.or.ug/",
+      "source_label": "Further reading from a relevant public source",
+      "body": [
+        "Exchange rates change often. Before accepting a claim that the Uganda shilling has risen or fallen, check which currency pair is being discussed, which date the figure comes from and whether it is a bank buying rate, selling rate or a market reference rate.",
+        "Look up the Bank of Uganda's published information and compare it with reporting from the same date. A change in a foreign-exchange rate does not automatically prove that every shop will raise prices immediately. Keep the original numbers beside the updated numbers so you can examine the difference yourself."
+      ]
+    },
+    {
+      "id": "parliament-bill",
+      "title": "Checking whether Parliament has passed a law",
+      "category": "Government",
+      "updated": "2026-10-29",
+      "rights": "Original RUMOURPRINT AI educational explainer. Not a reproduced news article.",
+      "source_url": "https://www.parliament.go.ug/",
+      "source_label": "Further reading from a relevant public source",
+      "body": [
+        "A proposal, committee recommendation, parliamentary vote and law in force are not the same thing. Social posts sometimes shorten this process to a sentence such as 'Parliament has banned...' without explaining what stage a measure has reached.",
+        "Search the relevant Bill or Act title on Parliament's official channels. Verify the date, what the text actually says, whether the President has assented where required and when the law begins to apply. A politician discussing an idea is not equivalent to legal adoption."
+      ]
+    },
+    {
+      "id": "quote-verification",
+      "title": "Did a public figure really say it?",
+      "category": "Social media",
+      "updated": "2026-10-29",
+      "rights": "Original RUMOURPRINT AI educational explainer. Not a reproduced news article.",
+      "source_url": "https://africacheck.org/",
+      "source_label": "Further reading from a relevant public source",
+      "body": [
+        "A quotation placed over somebody's portrait is easy to manufacture. Start by identifying who is alleged to have said it, where the conversation supposedly happened, and when. Copy a distinctive phrase into a search engine and look for the earliest complete recording, speech or verified transcript.",
+        "Search the person's public accounts, but do not treat a similar display name or a blue badge as unquestionable proof of ownership. Compare the original post or recording with the screenshot. Watch for parody, missing words, denials and quotations from third parties."
+      ]
+    },
+    {
+      "id": "whatsapp-voice",
+      "title": "Checking information heard in a WhatsApp voice note",
+      "category": "WhatsApp",
+      "updated": "2026-10-29",
+      "rights": "Original RUMOURPRINT AI educational explainer. Not a reproduced news article.",
+      "source_url": "https://www.unesco.org/en/media-information-literacy",
+      "source_label": "Further reading from a relevant public source",
+      "body": [
+        "Voice notes can sound convincing because listeners hear confidence and emotion. Begin by writing down the central claim as accurately as possible. Separate what the speaker knows firsthand from what they say they heard from others.",
+        "Ask whether the speaker identifies a date, a place and a checkable document. Search for those specific details rather than relying on the speaker's tone. Do not forward a private voice note or publish a person's contact information without permission. You can research the substance without revealing a private source."
+      ]
+    },
+    {
+      "id": "image-camera-tags",
+      "title": "What a photo's camera information can tell you",
+      "category": "Pictures",
+      "updated": "2026-10-29",
+      "rights": "Original RUMOURPRINT AI educational explainer. Not a reproduced news article.",
+      "source_url": "https://contentcredentials.org/",
+      "source_label": "Further reading from a relevant public source",
+      "body": [
+        "A picture file may contain details such as a camera maker, camera model, date and software name. For example, it might mention a Canon camera and Adobe Photoshop. These clues can help reconstruct a possible editing workflow.",
+        "However, camera tags can be copied, changed or removed. A Photoshop tag does not prove that the scene itself is fake, and missing camera information does not mean the image was generated with AI. Compare with the original picture and, where available, signed Content Credentials."
+      ]
+    },
+    {
+      "id": "ai-image-signals",
+      "title": "What AI labels on pictures actually mean",
+      "category": "Pictures",
+      "updated": "2026-10-29",
+      "rights": "Original RUMOURPRINT AI educational explainer. Not a reproduced news article.",
+      "source_url": "https://contentcredentials.org/",
+      "source_label": "Further reading from a relevant public source",
+      "body": [
+        "Some pictures contain signed records describing which software made or edited them. These are often called Content Credentials. A trustworthy record may say that an AI tool participated in generating or editing an image.",
+        "Such a record does not prove that the depicted event happened, nor does its absence establish that a picture is real. Reposting and screenshots can remove metadata. Avoid claims like '87 percent of this image is AI' unless a documented method actually measures a defined area with validated accuracy."
+      ]
+    },
+    {
+      "id": "reverse-pictures",
+      "title": "How to search for an older copy of a picture",
+      "category": "Pictures",
+      "updated": "2026-10-29",
+      "rights": "Original RUMOURPRINT AI educational explainer. Not a reproduced news article.",
+      "source_url": "https://lens.google/",
+      "source_label": "Further reading from a relevant public source",
+      "body": [
+        "A photograph may appear in a new claim even though it was taken years earlier or in another country. An image search can find pages where visually similar or matching copies appear. This is useful for investigating reuse or misleading captions.",
+        "Compare details in the pictures, source publication dates, visible landmarks and captions. Similar-looking images are not necessarily the same photograph. A matching web page can offer a lead, but it does not automatically identify who appears in the image or prove who first took it."
+      ]
+    },
+    {
+      "id": "health-alerts",
+      "title": "Checking a public health warning",
+      "category": "Health",
+      "updated": "2026-10-29",
+      "rights": "Original RUMOURPRINT AI educational explainer. Not a reproduced news article.",
+      "source_url": "https://www.who.int/",
+      "source_label": "Further reading from a relevant public source",
+      "body": [
+        "Messages about diseases, medicine and outbreaks can affect people's decisions quickly. Check which health authority is cited, where the warning applies and when it was issued. A recommendation from another country may not describe current guidance in Uganda.",
+        "Look for public-health notices from relevant authorities and reliable medical institutions. Distinguish official guidance from a comment posted by an individual. Do not alter prescribed treatments or spread alarming messages based only on a screenshot."
+      ]
+    },
+    {
+      "id": "flood-photos",
+      "title": "How flooding photos can be miscaptioned",
+      "category": "Weather & disasters",
+      "updated": "2026-10-29",
+      "rights": "Original RUMOURPRINT AI educational explainer. Not a reproduced news article.",
+      "source_url": "https://www.unicef.org/",
+      "source_label": "Further reading from a relevant public source",
+      "body": [
+        "Flood images can move between locations and years. A picture from one incident may be forwarded with the name of another neighbourhood. When possible, compare visible buildings, weather conditions, clothing and road signs with reports from the alleged place.",
+        "Search the picture or its caption, then check the earliest dated publications you can find. Do not enter floodwaters merely to capture a new image for verification. If you are unsure of the location, describe the image as unverified and seek updates from local authorities."
+      ]
+    },
+    {
+      "id": "election-counts",
+      "title": "Checking election numbers on social media",
+      "category": "Elections",
+      "updated": "2026-10-29",
+      "rights": "Original RUMOURPRINT AI educational explainer. Not a reproduced news article.",
+      "source_url": "https://www.ec.or.ug/",
+      "source_label": "Further reading from a relevant public source",
+      "body": [
+        "A running tally, a projected result, a provisional declaration and a certified final result can differ. Before repeating election figures, identify the election, constituency, time, reporting unit and body issuing the result.",
+        "Compare the exact numbers against official Electoral Commission announcements and multiple independent reports. Some screenshots omit decimal places or combine votes from different stages. A high number of reposts does not make a result official."
+      ]
+    },
+    {
+      "id": "fake-job-offers",
+      "title": "Spotting suspicious recruitment notices",
+      "category": "Scams",
+      "updated": "2026-10-29",
+      "rights": "Original RUMOURPRINT AI educational explainer. Not a reproduced news article.",
+      "source_url": "https://www.unesco.org/en/media-information-literacy",
+      "source_label": "Further reading from a relevant public source",
+      "body": [
+        "Fake recruitment messages may use government seals, familiar company logos and urgent deadlines. Check the sender's address, the organisation's real website and whether the vacancy is listed through official channels.",
+        "Be especially cautious if the notice asks for a registration fee, a mobile-money transfer, a password or a photograph of your identity card before basic verification. Search a distinctive sentence from the advert to see if an older message has been reused. Do not pay solely because a forwarded poster looks professional."
+      ]
+    },
+    {
+      "id": "market-prices",
+      "title": "Checking claims about food or fuel prices",
+      "category": "Money & prices",
+      "updated": "2026-10-29",
+      "rights": "Original RUMOURPRINT AI educational explainer. Not a reproduced news article.",
+      "source_url": "https://www.ubos.org/",
+      "source_label": "Further reading from a relevant public source",
+      "body": [
+        "One shop price does not describe the whole market. A claim such as 'fuel has doubled everywhere' needs a starting price, current price, period and specific location. Prices vary by supplier and region.",
+        "Look for dated statistics from relevant agencies and compare like-for-like products. Ask whether the quoted amount includes taxes or transport. When a speaker gives no reference date or source, treat the figure as a lead to investigate rather than a confirmed economic fact."
+      ]
+    },
+    {
+      "id": "viral-video",
+      "title": "Checking a short video taken out of context",
+      "category": "Video",
+      "updated": "2026-10-29",
+      "rights": "Original RUMOURPRINT AI educational explainer. Not a reproduced news article.",
+      "source_url": "https://africacheck.org/",
+      "source_label": "Further reading from a relevant public source",
+      "body": [
+        "Short clips often remove the questions, background or sentences surrounding a statement. Begin by identifying the speaker, event, approximate date and longer original recording. Compare the clip's audio and subtitles with the full speech.",
+        "A video edit can be perfectly real footage while changing the meaning of what the speaker said. Search for the complete exchange, and remember that a reposted caption is not the same as a transcript. Record where the clip came from before sharing it further."
+      ]
+    },
+    {
+      "id": "sports-transfer",
+      "title": "Checking a rumoured football transfer",
+      "category": "Sports",
+      "updated": "2026-10-29",
+      "rights": "Original RUMOURPRINT AI educational explainer. Not a reproduced news article.",
+      "source_url": "https://www.fifa.com/",
+      "source_label": "Further reading from a relevant public source",
+      "body": [
+        "Transfer rumours can travel rapidly from fan pages to messaging groups. A person posing with a club shirt, an old interview or a line about negotiations does not by itself confirm that a deal is complete.",
+        "Look for an official statement from the player or clubs, then compare with reliable sports reporting. Note when the report was published and whether it describes interest, an agreement in principle, a medical examination or a completed registration."
+      ]
+    },
+    {
+      "id": "parody-pages",
+      "title": "Recognising a parody or impersonation account",
+      "category": "Social media",
+      "updated": "2026-10-29",
+      "rights": "Original RUMOURPRINT AI educational explainer. Not a reproduced news article.",
+      "source_url": "https://www.unesco.org/en/media-information-literacy",
+      "source_label": "Further reading from a relevant public source",
+      "body": [
+        "An account can use the name and photo of a well-known organisation without belonging to it. Read its full username carefully and check whether an official website links to that exact account. Impersonators can change display names at any time.",
+        "Check the account's posting history and whether the original statement appears on the institution's established channels. A verification badge alone should not settle a dispute about who controls an account. Do not assume the post is genuine simply because it has many likes."
+      ]
+    },
+    {
+      "id": "numbers-statistics",
+      "title": "How to check a surprising statistic",
+      "category": "Statistics",
+      "updated": "2026-10-29",
+      "rights": "Original RUMOURPRINT AI educational explainer. Not a reproduced news article.",
+      "source_url": "https://www.ubos.org/",
+      "source_label": "Further reading from a relevant public source",
+      "body": [
+        "Large statistics can sound authoritative even when the context is missing. Look for the year, population group, measurement method and original report title. 'Half of young people' may refer only to a particular survey group or region.",
+        "Try to find the full report or dataset and read the definition beneath the table. Check whether percentages have been rounded and whether one number is being compared with a different period. If a statistic is untraceable, tell readers that you could not establish its source."
+      ]
+    },
+    {
+      "id": "the-final-check",
+      "title": "A five-step personal fact-check routine",
+      "category": "Quick guide",
+      "updated": "2026-10-29",
+      "rights": "Original RUMOURPRINT AI educational explainer. Not a reproduced news article.",
+      "source_url": "https://www.unesco.org/en/media-information-literacy",
+      "source_label": "Further reading from a relevant public source",
+      "body": [
+        "First, stop before forwarding a claim that makes you frightened, angry or excited. Second, identify the exact statement that could be checked. Third, note when and where it supposedly happened. Fourth, open the original reporting or official record rather than trusting only a screenshot.",
+        "Finally, compare more than one source and decide what is still uncertain. You do not need to be a journalist to ask these questions. RUMOURPRINT can help you find links, but the decision about what those links establish remains yours."
+      ]
+    }
+  ]
+}
