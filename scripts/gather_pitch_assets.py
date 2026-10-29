@@ -20,6 +20,8 @@ PHOTOS=[
  ("boda_men","Boda boda drivers of Uganda.jpg"),
  ("newsroom_laptop","Journalist at work... laptop, recorder.... 07.jpg"),
  ("newsroom_office","Newsroom.jpg"),
+ ("journalist_portrait","Journalist at work... laptop, recorder.... 01.jpg"),
+ ("journalist_workstation","Journalist at work... laptop, recorder.... 08.jpg"),
 ]
 links=[]
 for name,filename in PHOTOS:
@@ -75,8 +77,9 @@ try:
        except Exception: pass
        print("PAGE TITLE",name,page.title(),flush=True)
        page.screenshot(path=str(OUT/(name+"_initial.png")),full_page=False,timeout=30000)
-       inp=page.locator("textarea").first
-       inp.fill("WhatsApp users claim Makerere University has cancelled all examinations next week.")
+       inp=page.locator('textarea:visible').first
+       print("VISIBLE TEXTAREAS",name,page.locator("textarea:visible").count(),flush=True)
+       inp.fill("WhatsApp users claim Makerere University has cancelled all examinations next week.",timeout=18000)
        try:
         page.get_by_text("WhatsApp",exact=True).first.click(timeout=7000)
        except Exception: pass
@@ -85,7 +88,7 @@ try:
         page.wait_for_timeout(13000)
        except Exception as ex:
         print("INVESTIGATE error",name,str(ex)[:200],flush=True)
-       page.screenshot(path=str(OUT/(name+"_investigation.png")),full_page=False,timeout=30000)
+       page.screenshot(path=str(OUT/(name+"_investigation.png")),full_page=True,timeout=30000)
        print("SCREENSHOT",name,flush=True)
       except Exception as ex:
        print("SCREENSHOT FAILED",name,str(ex)[:300],flush=True)
